@@ -3,11 +3,11 @@ from supabase import create_client, Client
 from datetime import datetime, timedelta
 import qrcode
 import io
+import re
 
 # --- ১. কনফিগারেশন ও কানেকশন ---
 st.set_page_config(page_title="FuelGuard Pro", page_icon="⛽", layout="wide")
 
-# Supabase Secrets (Streamlit Cloud Settings-এ এগুলো যোগ করবেন)
 try:
     URL = st.secrets["SUPABASE_URL"]
     KEY = st.secrets["SUPABASE_KEY"]
@@ -19,8 +19,6 @@ except Exception as e:
 LOCKOUT_HOURS = 72
 APP_URL = "https://fuel-tracker.streamlit.app" 
 
-# ডেইলি পিন জেনারেটর (Base PIN + আজকের তারিখ)
-# উদাহরণ: BASE_PIN যদি ১২৩৪ হয় আর আজ ৩ তারিখ হয়, পিন হবে ১২৩৪০৩
 def get_daily_pin():
     base_pin = st.secrets.get("BASE_PIN", "1234")
     day_str = datetime.now().strftime("%d") 
@@ -28,13 +26,44 @@ def get_daily_pin():
 
 CURRENT_DAILY_PIN = get_daily_pin()
 
-BD_DISTRICTS = ["BAGERHAT", "BANDARBAN", "BARGUNA", "BARISHAL", "BHOLA", "BOGURA", "BRAHMANBARIA", "CHANDPUR", "CHATTOGRAM", "CHATTOGRAM METRO", "CHUADANGA", "COMILLA", "COXS BAZAR", "DHAKA", "DHAKA METRO", "DINAJPUR", "FARIDPUR", "FENI", "GAIBANDHA", "GAZIPUR", "GOPALGANJ", "HABIGANJ", "JAMALPUR", "JASHORE", "JHALOKATHI", "JHENAIDAH", "JOYPURHAT", "KHAGRACHHARI", "KHULNA", "KHULNA METRO", "KISHOREGNJ", "KURIGRAM", "KUSHTIA", "LAKSHMIPUR", "LALMONIRHAT", "MADARIPUR", "MAGURA", "MANIKGANJ", "MEHERPUR", "MOULVIBAZAR", "MUNSHIGANJ", "MYMENSINGH", "NAOGAON", "NARAIL", "NARAYANGANJ", "NARSINGDI", "NATORE", "NETROKONA", "NILPHAMARI", "NOAKHALI", "PABNA", "PANCHAGARH", "PATUAKHALI", "PIROJPUR", "RAJBARI", "RAJSHAHI", "RAJSHAHI METRO", "RANGAMATI", "RANGPUR", "SATKHIRA", "SHARIATPUR", "SHERPUR", "SIRAJGANJ", "SUNAMGANJ", "SYLHET", "SYLHET METRO", "TANGAIL", "THAKURGAON"]
-SERIES_LIST = ["KA", "KHA", "GA", "GHA", "CHA", "THA", "HA", "LA", "MA", "BA"]
+# --- ২. সাহায্যকারী ফাংশন (ID Cleaning) ---
+def format_id_for_search(user_input):
+    """ইউজার ইনপুট থেকে স্পেস ও ড্যাশ মুছে ফেলে বড় হাতের অক্ষরে রূপান্তর করে।"""
+    if not user_input:
+        return ""
+    # স্পেস এবং ড্যাশ ডিলিট করা
+    clean = re.sub(r'[-\s]', '', str(user_input))
+    return clean.upper()
 
-# --- ২. ডাটাবেজ ফাংশনসমূহ ---
-def get_rider_by_id(rider_id):
-    res = supabase.table("riders").select("*").eq("rider_id", rider_id.upper().strip()).execute()
-    return res.data[0] if res.data else None
+# --- ৩. ডাটাবেজ ফাংশনসমূহ ---
+def get_rider_by_id(search_id):
+    """
+    ডাটাবেজে ড্যাশ থাকা সত্ত্বেও ড্যাশ ছাড়া সার্চ করার জন্য 
+    আমরা PostgreSQL-এর replace ফাংশন ব্যবহার করছি।
+    """
+    clean_target = format_id_for_search(search_id)
+    if not clean_target:
+        return None
+    
+    try:
+        # PostgreSQL কুয়েরি: ড্যাশ সরিয়ে চেক করা
+        res = supabase.rpc('get_rider_by_clean_id', {'search_text': clean_target}).execute()
+        
+        # যদি RPC সেটআপ না থাকে, তবে সাধারণ পদ্ধতি (সব ডাটা এনে ফিল্টার - ছোট ডাটাবেজের জন্য কার্যকর)
+        if not res.data:
+            all_riders = supabase.table("riders").select("*").execute()
+            for r in all_riders.data:
+                if format_id_for_search(r['rider_id']) == clean_target:
+                    return r
+            return None
+        return res.data[0]
+    except:
+        # ফেইলসেফ: যদি RPC না থাকে তবে সরাসরি ফিল্টার
+        all_riders = supabase.table("riders").select("*").execute()
+        for r in all_riders.data:
+            if format_id_for_search(r['rider_id']) == clean_target:
+                return r
+        return None
 
 def register_new_rider(rider_id, name):
     try:
@@ -57,23 +86,22 @@ def update_refill(rider_id, liters, photo_file=None):
         "liters": float(liters)
     }).eq("rider_id", rider_id).execute()
 
-# --- ৩. রোল সিলেকশন (Home Page) ---
+# --- ৪. রোল সিলেকশন ---
 if "user_role" not in st.session_state:
     st.session_state.user_role = None
 
 if st.session_state.user_role is None:
     st.title("⛽ FuelGuard Pro")
-    st.subheader("আপনার ভূমিকা নির্বাচন করুন:")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("🏍️ Rider / Customer (No PIN)", use_container_width=True):
+        if st.button("🏍️ Rider / Customer", use_container_width=True):
             st.session_state.user_role = "Rider"; st.rerun()
     with col2:
-        if st.button("🏢 Pump Station (PIN Required)", use_container_width=True):
+        if st.button("🏢 Pump Station", use_container_width=True):
             st.session_state.user_role = "Pump"; st.rerun()
     st.stop()
 
-# --- ৪. রাইডার ইন্টারফেস (উন্মুক্ত) ---
+# --- ৫. রাইডার ইন্টারফেস ---
 if st.session_state.user_role == "Rider":
     if st.sidebar.button("⬅️ Home"):
         st.session_state.user_role = None; st.rerun()
@@ -82,11 +110,12 @@ if st.session_state.user_role == "Rider":
     tab1, tab2 = st.tabs(["🔍 চেক স্ট্যাটাস", "📝 নতুন নিবন্ধন"])
     
     with tab1:
-        search_id = st.text_input("আইডি লিখুন (যেমন: PABNA HA 12-3456)")
+        search_id = st.text_input("আইডি লিখুন (যেমন: PABNA HA 123456 বা PABNA-HA-12-3456)")
         if search_id:
             rider = get_rider_by_id(search_id)
             if rider:
                 st.info(f"👤 রাইডার: **{rider['name']}**")
+                st.write(f"🆔 আইডি: **{rider['rider_id']}**")
                 st.write(f"⛽ শেষ রিফিল: **{rider['liters']} লিটার**")
                 if rider['last_refill']:
                     unlock = datetime.strptime(rider['last_refill'], "%Y-%m-%d %H:%M:%S") + timedelta(hours=LOCKOUT_HOURS)
@@ -97,18 +126,17 @@ if st.session_state.user_role == "Rider":
             else: st.warning("এই আইডিটি নিবন্ধিত নয়।")
 
     with tab2:
+        st.write("নতুন রাইডার নিবন্ধন করুন")
         with st.form("reg"):
-            c1, c2 = st.columns(2)
-            with c1: dist = st.selectbox("জেলা", sorted(BD_DISTRICTS)); ser = st.selectbox("সিরিজ", SERIES_LIST)
-            with c2: num = st.text_input("নাম্বার (যেমন: 12-3456)"); name = st.text_input("আপনার নাম")
+            r_id = st.text_input("পুরো গাড়ির নাম্বার (যেমন: PABNA-HA-12-3456)")
+            name = st.text_input("আপনার নাম")
             if st.form_submit_button("নিবন্ধন সম্পন্ন করুন"):
-                if num and name:
-                    full_id = f"{dist}-{ser}-{num}".upper()
-                    if register_new_rider(full_id, name):
-                        st.success(f"সফল! আপনার আইডি: {full_id}"); st.balloons()
+                if r_id and name:
+                    if register_new_rider(r_id, name):
+                        st.success(f"সফল! আপনার আইডি: {r_id.upper()}"); st.balloons()
                     else: st.error("এই আইডিটি ইতিমধ্যে নিবন্ধিত!")
 
-# --- ৫. পাম্প স্টেশন ইন্টারফেস (পিন সুরক্ষিত) ---
+# --- ৬. পাম্প স্টেশন ইন্টারফেস ---
 elif st.session_state.user_role == "Pump":
     if "pump_auth" not in st.session_state: st.session_state.pump_auth = False
 
@@ -118,23 +146,20 @@ elif st.session_state.user_role == "Pump":
         if st.button("প্রবেশ করুন"):
             if pin_in == CURRENT_DAILY_PIN:
                 st.session_state.pump_auth = True; st.rerun()
-            else: st.error("ভুল পিন! পাম্প ম্যানেজারের সাথে যোগাযোগ করুন।")
+            else: st.error("ভুল পিন!")
         if st.button("⬅️ ব্যাক"): st.session_state.user_role = None; st.rerun()
     else:
         st.title("⛽ Pump Operation Panel")
-        if st.sidebar.button("🚪 লগ আউট"):
-            st.session_state.pump_auth = False; st.rerun()
-            
-        p_id = st.text_input("রাইডার আইডি স্ক্যান বা টাইপ করুন")
+        p_id = st.text_input("আইডি সার্চ করুন (Case/Dash Sensitive নয়)")
         if p_id:
             rider = get_rider_by_id(p_id)
             if rider:
-                st.subheader(f"👤 রাইডার: {rider['name']}")
+                st.subheader(f"👤 রাইডার: {rider['name']} ({rider['rider_id']})")
                 eligible = True
                 if rider['last_refill']:
                     unlock_time = datetime.strptime(rider['last_refill'], "%Y-%m-%d %H:%M:%S") + timedelta(hours=LOCKOUT_HOURS)
                     if datetime.now() < unlock_time:
-                        eligible = False; st.error(f"🚫 লক করা! তেল পাবেন: {unlock_time.strftime('%I:%M %p')}")
+                        eligible = False; st.error(f"🚫 লক করা! সময় বাকি।")
                 
                 if eligible:
                     st.success("✅ রিফিল অনুমোদিত")
@@ -149,7 +174,7 @@ elif st.session_state.user_role == "Pump":
                         if photo: st.session_state.taken_photo = photo
             else: st.warning("আইডি পাওয়া যায়নি।")
 
-# --- ৬. সাইডবার QR জেনারেটর ---
+# --- ৭. QR জেনারেটর ---
 st.sidebar.markdown("---")
 if st.sidebar.checkbox("📥 QR Code Generator"):
     qr_id = st.sidebar.text_input("ID লিখুন")
