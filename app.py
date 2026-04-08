@@ -98,27 +98,63 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
                     else: st.success("✅ আপনি এখন তেল পাওয়ার যোগ্য।")
                 else: st.success("✅ আপনি এখন তেল পাওয়ার যোগ্য।")
 
-    with tab2:
-        with st.form("reg_form"):
-            reg_data = {"category": mode, "liters": 0, "last_refill": None}
-            name = st.text_input("নাম")
-            if mode in ["General", "Govt"]:
-                c_d, c_s, c_n = st.columns(3)
-                dist = c_d.selectbox("জেলা", sorted(BD_DISTRICTS), key=f"d_{mode}")
-                ser = c_s.selectbox("সিরিজ", SERIES_LIST, key=f"s_{mode}")
-                num = c_n.text_input("নাম্বার", key=f"n_{mode}")
-                reg_data["rider_id"] = f"{dist}-{ser}-{num}".upper()
-            elif mode == "Farmer":
-                reg_data["rider_id"] = st.text_input("NID নাম্বার")
-                reg_data["uno_cert"] = st.text_input("UNO সার্টিফিকেট নম্বর")
+    # --- ৫. ইউজার ইন্টারফেস (User Portal) অংশ ---
+with tab2:
+    with st.form("reg_form"):
+        reg_data = {"category": mode, "liters": 0, "last_refill": None}
+        name = st.text_input("চালকের নাম / কর্মকর্তার নাম")
+        
+        # সরকারি গাড়ির জন্য বিশেষ ইনপুট
+        if mode == "Govt":
+            # জেলা, সিরিজ ও নাম্বারের ব্যবস্থা
+            c1, c2, c3 = st.columns(3)
+            dist = c1.selectbox("জেলা", sorted(BD_DISTRICTS), key="dist_govt")
+            ser = c2.selectbox("সিরিজ", SERIES_LIST, key="ser_govt")
+            num = c3.text_input("গাড়ির নাম্বার (উদা: 12-3456)", key="num_govt")
             
-            reg_data["name"] = name
-            if st.form_submit_button("নিবন্ধন সম্পন্ন করুন"):
-                if name and reg_data.get("rider_id"):
-                    try:
-                        supabase.table("riders").insert(reg_data).execute()
-                        st.success("সফল!"); st.balloons()
-                    except: st.error("ইতিমধ্যে নিবন্ধিত!")
+            reg_data["rider_id"] = f"{dist}-{ser}-{num}".upper()
+            
+            # অফিস আইডি বা দপ্তরের নাম (বাধ্যতামূলক)
+            reg_data["work_id"] = st.text_input("অফিস আইডি (Office ID) / দপ্তরের নাম", placeholder="যেমন: LGED123 বা শিক্ষা অধিদপ্তর")
+            st.info("🚑 সরকারি জরুরি সেবার গাড়ির ক্ষেত্রে ৭২ ঘণ্টার লক প্রযোজ্য হবে না।")
+
+        # সাধারণ ব্যবহারকারী (Shadharon)
+        elif mode == "General":
+            c1, c2, c3 = st.columns(3)
+            dist = c1.selectbox("জেলা", sorted(BD_DISTRICTS), key="dist_gen")
+            ser = c2.selectbox("সিরিজ", SERIES_LIST, key="ser_gen")
+            num = c3.text_input("নাম্বার", key="num_gen")
+            reg_data["rider_id"] = f"{dist}-{ser}-{num}".upper()
+
+        # কৃষক (Farmer)
+        elif mode == "Farmer":
+            reg_data["rider_id"] = st.text_input("NID নাম্বার")
+            reg_data["uno_cert"] = st.text_input("UNO সার্টিফিকেট নম্বর")
+
+        reg_data["name"] = name
+        
+        if st.form_submit_button("নিবন্ধন সম্পন্ন করুন"):
+            # ভ্যালিডেশন: সরকারি গাড়ির জন্য গাড়ির নম্বর এবং অফিস আইডি বাধ্যতামূলক
+            is_valid = False
+            if mode == "Govt":
+                if name and num and reg_data.get("work_id"):
+                    is_valid = True
+            elif mode == "General":
+                if name and num:
+                    is_valid = True
+            elif mode == "Farmer":
+                if name and reg_data.get("rider_id") and reg_data.get("uno_cert"):
+                    is_valid = True
+            
+            if is_valid:
+                try:
+                    supabase.table("riders").insert(reg_data).execute()
+                    st.success(f"সফল! {mode} হিসেবে নিবন্ধিত হয়েছে। আইডি: {reg_data['rider_id']}")
+                    st.balloons()
+                except:
+                    st.error("এই আইডিটি ইতিমধ্যে নিবন্ধিত!")
+            else:
+                st.warning("দয়া করে নাম, আইডি এবং প্রয়োজনীয় সকল তথ্য প্রদান করুন।")
 
 # --- ৬. পাম্প অপারেটর ---
 elif st.session_state.app_mode == "Pump":
