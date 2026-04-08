@@ -6,7 +6,6 @@ import re
 # --- ১. কনফিগারেশন ও কানেকশন ---
 st.set_page_config(page_title="FuelGuard Pro", page_icon="⛽", layout="wide")
 
-# কানেকশন সেটআপ
 try:
     URL = st.secrets["SUPABASE_URL"]
     KEY = st.secrets["SUPABASE_KEY"]
@@ -28,7 +27,6 @@ CURRENT_DAILY_PIN = get_daily_pin()
 
 # --- ২. সাহায্যকারী ফাংশন (Smart Search) ---
 def format_id_for_search(user_input):
-    """স্পেস এবং ড্যাশ সরিয়ে সব বড় হাতের অক্ষরে রূপান্তর করে"""
     if not user_input: return ""
     clean = re.sub(r'[-\s]', '', str(user_input))
     return clean.upper()
@@ -48,22 +46,22 @@ def get_user_by_id(search_id):
 def show_instruction():
     st.markdown("""
     ### **FuelGuard Pro-তে স্বাগতম!**
-    ১. **সঠিক ক্যাটাগরি:** কৃষক, সরকারি বা সাধারণ—আপনার সঠিক প্রোফাইল নির্বাচন করুন।
+    ১. **নিবন্ধন:** সাধারণ রাইডারদের জন্য জেলা, সিরিজ ও নাম্বার দেওয়া বাধ্যতামূলক।
     ২. **কৃষক ও সরকারি:** আপনাদের জন্য ৭২ ঘণ্টার লক প্রযোজ্য নয়।
-    ৩. **অপারেটর:** তেল প্রদানের সময় ছবি তোলা ঐচ্ছিক, তবে তথ্য সেভ করা বাধ্যতামূলক।
+    ৩. **অপারেটর:** তেল প্রদানের সময় ছবি তোলা ঐচ্ছিক।
     """)
-    if st.button("ঠিক আছে, প্রবেশ করুন"):
+    if st.button("ঠিক আছে"):
         st.session_state.seen_instruction = True; st.rerun()
 
 if "seen_instruction" not in st.session_state:
     show_instruction()
 
-# --- ৪. হোম পেজ (ক্যাটাগরি সিলেকশন) ---
+# --- ৪. হোম পেজ ---
 if "app_mode" not in st.session_state:
     st.session_state.app_mode = None
 
 if st.session_state.app_mode is None:
-    st.title("⛽ FuelGuard Pro: আপনার ক্যাটাগরি নির্বাচন করুন")
+    st.title("⛽ FuelGuard Pro: ক্যাটাগরি নির্বাচন করুন")
     st.markdown("---")
     c1, c2 = st.columns(2); c3, c4 = st.columns(2)
     with c1:
@@ -85,7 +83,7 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
     tab1, tab2 = st.tabs(["🔍 স্ট্যাটাস চেক", "📝 নতুন নিবন্ধন"])
 
     with tab1:
-        s_id = st.text_input("আপনার আইডি বা গাড়ির নাম্বার দিন")
+        s_id = st.text_input("আইডি বা গাড়ির নাম্বার দিন")
         if s_id:
             user = get_user_by_id(s_id)
             if user:
@@ -105,12 +103,13 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
         with st.form("reg_form"):
             reg_data = {"category": mode, "liters": 0, "last_refill": None}
             name = st.text_input("পুরো নাম")
+            num = "" # ভ্যালিডেশনের জন্য
             
             if mode in ["General", "Govt"]:
                 c_d, c_s, c_n = st.columns(3)
                 dist = c_d.selectbox("জেলা", sorted(BD_DISTRICTS), key=f"d_{mode}")
                 ser = c_s.selectbox("সিরিজ", SERIES_LIST, key=f"s_{mode}")
-                num = c_n.text_input("নাম্বার (উদা: 12-3456)", key=f"n_{mode}")
+                num = c_n.text_input("গাড়ির নাম্বার (যেমন: 12-3456)", key=f"n_{mode}")
                 reg_data["rider_id"] = f"{dist}-{ser}-{num}".upper()
                 if mode == "Govt":
                     reg_data["work_id"] = st.text_input("অফিস আইডি / দপ্তরের নাম")
@@ -120,13 +119,22 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
                 reg_data["uno_cert"] = st.text_input("UNO সার্টিফিকেট নম্বর")
 
             reg_data["name"] = name
+            
             if st.form_submit_button("নিবন্ধন সম্পন্ন করুন"):
-                if name and reg_data.get("rider_id"):
+                # কঠোর ভ্যালিডেশন চেক
+                error = False
+                if not name:
+                    st.error("❌ নাম প্রদান করা বাধ্যতামূলক।"); error = True
+                elif mode in ["General", "Govt"] and not num:
+                    st.error("❌ গাড়ির নাম্বার প্রদান করা বাধ্যতামূলক।"); error = True
+                elif mode == "Farmer" and (not reg_data["rider_id"] or not reg_data["uno_cert"]):
+                    st.error("❌ NID এবং UNO সার্টিফিকেট নম্বর বাধ্যতামূলক।"); error = True
+                
+                if not error:
                     try:
                         supabase.table("riders").insert(reg_data).execute()
                         st.success("নিবন্ধন সফল!"); st.balloons()
                     except: st.error("এই আইডিটি ইতিমধ্যে নিবন্ধিত!")
-                else: st.warning("সব তথ্য প্রদান করুন।")
 
 # --- ৬. পাম্প অপারেটর ---
 elif st.session_state.app_mode == "Pump":
@@ -140,8 +148,8 @@ elif st.session_state.app_mode == "Pump":
             else: st.error("ভুল পিন!")
         if st.button("⬅️ ব্যাক"): st.session_state.app_mode = None; st.rerun()
     else:
-        st.title("⛽ পাম্প অপারেশন প্যানেল")
-        p_search = st.text_input("আইডি সার্চ করুন (গাড়ির নাম্বার বা NID)")
+        st.title("⛽ পাম্প অপারেশন")
+        p_search = st.text_input("আইডি সার্চ করুন")
         if p_search:
             user = get_user_by_id(p_search)
             if user:
@@ -162,7 +170,7 @@ elif st.session_state.app_mode == "Pump":
                         f_type = st.selectbox("টাইপ", ["Petrol", "Octane", "Diesel"])
                         liters = st.number_input("লিটার পরিমাণ", 1.0, 500.0, 5.0)
                     with c_p:
-                        photo = st.camera_input("ছবি তুলুন (ঐচ্ছিক)")
+                        photo = st.camera_input("ছবি (ঐচ্ছিক)")
                     
                     if st.button("💾 ডাটা সেভ করুন"):
                         update_vals = {
