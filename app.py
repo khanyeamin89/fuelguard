@@ -74,43 +74,44 @@ if st.session_state.app_mode is None:
         if st.button("🏢 পাম্প অপারেটর", use_container_width=True, type="primary"): st.session_state.app_mode = "Pump"; st.rerun()
     st.stop()
 
-# --- ৫. ইউজার পোর্টাল ---
+# --- ৫. ইউজার পোর্টাল (Farmer, Govt, General) ---
 if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
-    if st.sidebar.button("⬅️ প্রধান পাতায় ফিরুন"): st.session_state.app_mode = None; st.rerun()
+    if st.sidebar.button("⬅️ প্রধান পাতায় ফিরুন"):
+        st.session_state.app_mode = None; st.rerun()
     
     mode = st.session_state.app_mode
     st.title(f"👤 {mode} পোর্টাল")
     tab1, tab2 = st.tabs(["🔍 স্ট্যাটাস চেক", "📝 নতুন নিবন্ধন"])
 
     with tab1:
-        s_id = st.text_input("আইডি বা গাড়ির নাম্বার দিন")
+        s_id = st.text_input("আইডি বা গাড়ির নাম্বার দিন")
         if s_id:
             user = get_user_by_id(s_id)
             if user:
                 st.success(f"স্বাগতম, **{user['name']}**")
                 is_exempt = user.get('category') in ["Farmer", "Govt"]
                 if is_exempt:
-                    st.info("✅ আপনার জন্য ৭২ ঘণ্টার লক প্রযোজ্য নয়।")
+                    st.info("✅ আপনার জন্য ৭২ ঘণ্টার লক প্রযোজ্য নয়।")
                 elif user['last_refill']:
                     unlock = datetime.strptime(user['last_refill'], "%Y-%m-%d %H:%M:%S") + timedelta(hours=LOCKOUT_HOURS)
                     if datetime.now() < unlock:
-                        st.error(f"🚫 লক! পুনরায় তেল পাবেন: {unlock.strftime('%b %d, %I:%M %p')}")
-                    else: st.success("✅ আপনি তেল পাওয়ার যোগ্য।")
-                else: st.success("✅ আপনি তেল পাওয়ার যোগ্য।")
-            else: st.warning("আইডিটি পাওয়া যায়নি।")
+                        st.error(f"🚫 লক! পুনরায় তেল পাবেন: {unlock.strftime('%b %d, %I:%M %p')}")
+                    else: st.success("✅ আপনি এখন তেল পাওয়ার যোগ্য।")
+                else: st.success("✅ আপনি এখন তেল পাওয়ার যোগ্য।")
+            else: st.warning("আইডিটি পাওয়া যায়নি।")
 
     with tab2:
         with st.form("reg_form"):
             reg_data = {"category": mode, "liters": 0, "last_refill": None}
             name = st.text_input("পুরো নাম")
-            num = "" # ভ্যালিডেশনের জন্য
+            v_num = "" 
             
             if mode in ["General", "Govt"]:
                 c_d, c_s, c_n = st.columns(3)
                 dist = c_d.selectbox("জেলা", sorted(BD_DISTRICTS), key=f"d_{mode}")
                 ser = c_s.selectbox("সিরিজ", SERIES_LIST, key=f"s_{mode}")
-                num = c_n.text_input("গাড়ির নাম্বার (যেমন: 12-3456)", key=f"n_{mode}")
-                reg_data["rider_id"] = f"{dist}-{ser}-{num}".upper()
+                v_num = c_n.text_input("গাড়ির নাম্বার (উদা: 12-3456)", key=f"n_{mode}")
+                reg_data["rider_id"] = f"{dist}-{ser}-{v_num}".upper()
                 if mode == "Govt":
                     reg_data["work_id"] = st.text_input("অফিস আইডি / দপ্তরের নাম")
             
@@ -121,12 +122,11 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
             reg_data["name"] = name
             
             if st.form_submit_button("নিবন্ধন সম্পন্ন করুন"):
-                # কঠোর ভ্যালিডেশন চেক
                 error = False
                 if not name:
                     st.error("❌ নাম প্রদান করা বাধ্যতামূলক।"); error = True
-                elif mode in ["General", "Govt"] and not num:
-                    st.error("❌ গাড়ির নাম্বার প্রদান করা বাধ্যতামূলক।"); error = True
+                elif mode in ["General", "Govt"] and not v_num:
+                    st.error("❌ গাড়ির নাম্বার প্রদান করা বাধ্যতামূলক।"); error = True
                 elif mode == "Farmer" and (not reg_data["rider_id"] or not reg_data["uno_cert"]):
                     st.error("❌ NID এবং UNO সার্টিফিকেট নম্বর বাধ্যতামূলক।"); error = True
                 
@@ -136,20 +136,32 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
                         st.success("নিবন্ধন সফল!"); st.balloons()
                     except: st.error("এই আইডিটি ইতিমধ্যে নিবন্ধিত!")
 
-# --- ৬. পাম্প অপারেটর ---
+# --- ৬. পাম্প অপারেটর প্যানেল ---
 elif st.session_state.app_mode == "Pump":
     if "pump_auth" not in st.session_state: st.session_state.pump_auth = False
     
+    # লগইন অবস্থায় সাইডবারে ব্যাক বাটন
+    if st.session_state.pump_auth:
+        if st.sidebar.button("⬅️ প্রধান পাতায় ফিরুন"):
+            st.session_state.pump_auth = False
+            st.session_state.app_mode = None
+            st.rerun()
+
     if not st.session_state.pump_auth:
         st.title("🏢 পাম্প স্টেশন লগইন")
         pin = st.text_input("ডেইলি পিন", type="password")
-        if st.button("প্রবেশ করুন"):
-            if pin == CURRENT_DAILY_PIN: st.session_state.pump_auth = True; st.rerun()
-            else: st.error("ভুল পিন!")
-        if st.button("⬅️ ব্যাক"): st.session_state.app_mode = None; st.rerun()
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("প্রবেশ করুন", use_container_width=True):
+                if pin == CURRENT_DAILY_PIN: 
+                    st.session_state.pump_auth = True; st.rerun()
+                else: st.error("ভুল পিন!")
+        with c2:
+            if st.button("⬅️ ব্যাক", use_container_width=True):
+                st.session_state.app_mode = None; st.rerun()
     else:
         st.title("⛽ পাম্প অপারেশন")
-        p_search = st.text_input("আইডি সার্চ করুন")
+        p_search = st.text_input("আইডি সার্চ করুন (গাড়ির নাম্বার বা NID)")
         if p_search:
             user = get_user_by_id(p_search)
             if user:
@@ -186,8 +198,8 @@ elif st.session_state.app_mode == "Pump":
 
                         supabase.table("riders").update(update_vals).eq("rider_id", user['rider_id']).execute()
                         st.success("সফলভাবে সংরক্ষিত!"); st.rerun()
-                else: st.error("🚫 ইউজার লকড (৭২ ঘণ্টা নিয়ম)")
-            else: st.error("আইডি পাওয়া যায়নি।")
+                else: st.error("🚫 ইউজার লকড (৭২ ঘণ্টা নিয়ম)")
+            else: st.error("আইডি পাওয়া যায়নি।")
 
 st.markdown("---")
-st.caption("* বিশেষ ছাড়: কৃষক এবং সরকারি জরুরি সেবার ক্ষেত্রে '৭২ ঘণ্টার নিয়ম' প্রযোজ্য নয়।")
+st.caption("* বিশেষ ছাড়: কৃষক এবং সরকারি জরুরি সেবার ক্ষেত্রে '৭২ ঘণ্টার নিয়ম' প্রযোজ্য নয়।")
