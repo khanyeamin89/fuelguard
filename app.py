@@ -104,29 +104,38 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
     with tab2:
         with st.form("reg_form"):
             reg_data = {"category": mode, "liters": 0, "last_refill": None}
-            name = st.text_input("নাম")
+            name = st.text_input("চালকের নাম")
             
-            if mode == "General":
+            # --- সাধারণ ব্যবহারকারী ও সরকারি গাড়ির জন্য একই ফরম্যাট ---
+            if mode in ["General", "Govt"]:
                 c1, c2, c3 = st.columns(3)
-                dist = c1.selectbox("জেলা", sorted(BD_DISTRICTS))
-                ser = c2.selectbox("সিরিজ", SERIES_LIST)
-                num = c3.text_input("নাম্বার (যেমন: 12-3456)")
+                dist = c1.selectbox("জেলা", sorted(BD_DISTRICTS), key=f"dist_{mode}")
+                ser = c2.selectbox("সিরিজ", SERIES_LIST, key=f"ser_{mode}")
+                num = c3.text_input("নাম্বার (যেমন: 12-3456)", key=f"num_{mode}")
+                
+                # আইডি জেনারেশন (যেমন: DHAKA-METRO-GHA-11-2233)
                 reg_data["rider_id"] = f"{dist}-{ser}-{num}".upper()
+                
+                if mode == "Govt":
+                    reg_data["work_id"] = st.text_input("অফিসিয়াল ID নং / দপ্তরের নাম")
             
+            # --- কৃষকদের জন্য আলাদা ফরম্যাট ---
             elif mode == "Farmer":
                 reg_data["rider_id"] = st.text_input("NID নাম্বার")
                 reg_data["uno_cert"] = st.text_input("UNO সার্টিফিকেট নং")
-            
-            elif mode == "Govt":
-                reg_data["rider_id"] = st.text_input("গাড়ির নাম্বার").upper()
-                reg_data["work_id"] = st.text_input("অফিসিয়াল ID নং")
 
             reg_data["name"] = name
+            
             if st.form_submit_button("নিবন্ধন সম্পন্ন করুন"):
-                if name and reg_data["rider_id"]:
-                    supabase.table("riders").insert(reg_data).execute()
-                    st.success(f"সফল! আইডি: {reg_data['rider_id']}"); st.balloons()
-
+                if name and (mode == "Farmer" or num):
+                    try:
+                        supabase.table("riders").insert(reg_data).execute()
+                        st.success(f"নিবন্ধন সফল! আপনার আইডি: {reg_data['rider_id']}")
+                        st.balloons()
+                    except Exception as e:
+                        st.error("এই গাড়িটি ইতিমধ্যে নিবন্ধিত অথবা ডাটাবেজে সমস্যা হয়েছে।")
+                else:
+                    st.warning("দয়া করে নাম এবং গাড়ির নম্বর সঠিকভাবে প্রদান করুন।")
 # --- ৬. পাম্প অপারেটর ---
 elif st.session_state.app_mode == "Pump":
     if "pump_auth" not in st.session_state: st.session_state.pump_auth = False
