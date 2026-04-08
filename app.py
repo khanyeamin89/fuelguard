@@ -56,7 +56,7 @@ def show_instruction():
 if "seen_instruction" not in st.session_state:
     show_instruction()
 
-# --- ৪. হোম পেজ ---
+# --- ৪. হোম পেজ (ক্যাটাগরি সিলেকশন) ---
 if "app_mode" not in st.session_state:
     st.session_state.app_mode = None
 
@@ -88,7 +88,8 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
         if s_id:
             user = get_user_by_id(s_id)
             if user:
-                st.success(f"স্বাগতম, **{user['name']}**")
+                # নাম Sentence Case/Title Case-এ দেখানো হচ্ছে
+                st.success(f"স্বাগতম, **{user['name'].title()}**")
                 is_exempt = user.get('category') in ["Farmer", "Govt"]
                 if is_exempt:
                     st.info("✅ আপনার জন্য ৭২ ঘণ্টার লক প্রযোজ্য নয়।")
@@ -103,7 +104,7 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
     with tab2:
         with st.form("reg_form"):
             reg_data = {"category": mode, "liters": 0, "last_refill": None}
-            name = st.text_input("পুরো নাম")
+            name_input = st.text_input("পুরো নাম")
             v_num = "" 
             
             if mode in ["General", "Govt"]:
@@ -119,11 +120,9 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
                 reg_data["rider_id"] = st.text_input("NID নাম্বার")
                 reg_data["uno_cert"] = st.text_input("UNO সার্টিফিকেট নম্বর")
 
-            reg_data["name"] = name
-            
             if st.form_submit_button("নিবন্ধন সম্পন্ন করুন"):
                 error = False
-                if not name:
+                if not name_input:
                     st.error("❌ নাম প্রদান করা বাধ্যতামূলক।"); error = True
                 elif mode in ["General", "Govt"] and not v_num:
                     st.error("❌ গাড়ির নাম্বার প্রদান করা বাধ্যতামূলক।"); error = True
@@ -131,9 +130,12 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
                     st.error("❌ NID এবং UNO সার্টিফিকেট নম্বর বাধ্যতামূলক।"); error = True
                 
                 if not error:
+                    # নাম সুন্দরভাবে ফরম্যাট করে সেভ করা হচ্ছে
+                    reg_data["name"] = name_input.strip().title()
                     try:
                         supabase.table("riders").insert(reg_data).execute()
-                        st.success("নিবন্ধন সফল!"); st.balloons()
+                        st.success(f"অভিনন্দন {reg_data['name']}! নিবন্ধন সফল।")
+                        st.balloons()
                     except: st.error("এই আইডিটি ইতিমধ্যে নিবন্ধিত!")
 
 # --- ৬. পাম্প অপারেটর প্যানেল ---
@@ -165,7 +167,8 @@ elif st.session_state.app_mode == "Pump":
         if p_search:
             user = get_user_by_id(p_search)
             if user:
-                st.info(f"ইউজার: {user['name']} | ক্যাটাগরি: {user['category']}")
+                # এখানেও নাম Title Case-এ দেখানো হচ্ছে
+                st.info(f"ইউজার: {user['name'].title()} | ক্যাটাগরি: {user['category']}")
                 if user.get('uno_cert'): st.warning(f"📄 UNO সার্টিফিকেট: {user['uno_cert']}")
                 if user.get('work_id'): st.warning(f"🏢 অফিস আইডি: {user['work_id']}")
                 
@@ -177,11 +180,11 @@ elif st.session_state.app_mode == "Pump":
                 
                 if eligible:
                     st.success("✅ রিফিল অনুমোদিত")
-                    c_i, c_p = st.columns(2)
+                    c_i, col_p = st.columns(2)
                     with c_i:
                         f_type = st.selectbox("টাইপ", ["Petrol", "Octane", "Diesel"])
                         liters = st.number_input("লিটার পরিমাণ", 1.0, 500.0, 5.0)
-                    with c_p:
+                    with col_p:
                         photo = st.camera_input("ছবি (ঐচ্ছিক)")
                     
                     if st.button("💾 ডাটা সেভ করুন"):
