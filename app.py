@@ -132,10 +132,18 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
             reg_data = {"category": mode, "liters": 0, "last_refill": None}
             if mode in ["General", "Govt"]:
                 c_d, c_s, c_n = st.columns(3)
-                dist = c_d.selectbox("জেলা", sorted(BD_DISTRICTS))
-                ser = c_s.selectbox("সিরিজ", SERIES_LIST)
-                v_num = c_n.text_input("নাম্বার (উদা: 12-3456)")
+                dist = c_d.selectbox("জেলা", sorted(BD_DISTRICTS), key=f"d_{mode}")
+                ser = c_s.selectbox("সিরিজ", SERIES_LIST, key=f"s_{mode}")
+                v_num = c_n.text_input("গাড়ির নাম্বার (উদা: 12-3456)", key=f"n_{mode}")
                 reg_data["rider_id"] = f"{dist}-{ser}-{v_num}".upper()
+                if mode == "Govt":
+                    reg_data["work_id"] = st.text_input("অফিস আইডি / দপ্তরের নাম")
+    ##        if mode in ["General", "Govt"]:
+    ##            c_d, c_s, c_n = st.columns(3)
+    ##            dist = c_d.selectbox("জেলা", sorted(BD_DISTRICTS))
+      ##          ser = c_s.selectbox("সিরিজ", SERIES_LIST)
+      ##          v_num = c_n.text_input("নাম্বার (উদা: 12-3456)")
+      ##          reg_data["rider_id"] = f"{dist}-{ser}-{v_num}".upper()
             else:
                 reg_data["rider_id"] = st.text_input("NID নাম্বার")
                 reg_data["uno_cert"] = st.text_input("UNO সার্টিফিকেট নম্বর")
