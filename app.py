@@ -177,24 +177,24 @@ elif st.session_state.app_mode == "Pump":
                     unlock = datetime.strptime(user['last_refill'], "%Y-%m-%d %H:%M:%S") + timedelta(hours=LOCKOUT_HOURS)
                     if datetime.now() < unlock: eligible = False
                 
-                if eligible:
-                    st.success("✅ রিফিল অনুমোদিত")
-                    c_i, col_p = st.columns(2)
-                    with c_i:
-                        f_type = st.selectbox("টাইপ", ["Petrol", "Octane", "Diesel"])
-                        liters = st.number_input("লিটার", 1.0, 500.0, 5.0)
-                    with col_p:
-                        photo = st.camera_input("ছবি (ঐচ্ছিক)")
-                    
-                    if st.button("💾 ডাটা সেভ করুন", use_container_width=True, type="primary"):
-                        update_vals = {"last_refill": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "liters": float(liters), "fuel_type": f_type}
-                        if photo:
-                            f_name = f"{user['rider_id']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-                            supabase.storage.from_("fuel_photos").upload(f_name, photo.getvalue())
-                        supabase.table("riders").update(update_vals).eq("rider_id", user['rider_id']).execute()
-                        st.success("সফলভাবে সংরক্ষিত!"); st.rerun()
-                else: st.error("🚫 ইউজার লকড!")
-            else: st.error("আইডি পাওয়া যায়নি।")
+                # --- পাম্প অপারেটর প্যানেলের সেফটি আপডেট ---
+if eligible:
+    st.success("✅ রিফিল অনুমোদিত")
+    with st.container(border=True): # একটি বক্সের ভেতর ফর্মটি থাকবে
+        c_i, col_p = st.columns(2)
+        with c_i:
+            f_type = st.selectbox("জ্বালানির ধরণ", ["Petrol", "Octane", "Diesel"])
+            liters = st.number_input("লিটার পরিমাণ", 1.0, 100.0, 5.0) # সর্বোচ্চ লিমিট ১০০ লিটার সেট করা হয়েছে
+        with col_p:
+            photo = st.camera_input("ছবি (ঐচ্ছিক)")
+        
+        # ডাটা সেভ করার আগে চূড়ান্ত কনফার্মেশন
+        st.warning(f"আপনি কি নিশ্চিত যে **{user['name'].title()}**-কে **{liters} লিটার** তেল দিচ্ছেন?")
+        confirm_check = st.checkbox("হ্যাঁ, সব তথ্য সঠিক")
+        
+        if st.button("💾 ডাটা সেভ করুন", use_container_width=True, type="primary", disabled=not confirm_check):
+            # সেভ করার লজিক এখানে থাকবে...
+            update_vals = {"last_refill": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "liters": float(liters), "fuel_type": f_type}
 
 st.markdown("---")
 st.caption("* বিশেষ ছাড়: কৃষক এবং সরকারি জরুরি সেবার ক্ষেত্রে '৭২ ঘণ্টার নিয়ম' প্রযোজ্য নয়।")
