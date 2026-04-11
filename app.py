@@ -204,4 +204,4 @@ elif st.session_state.app_mode == "Pump":
             else: st.error("আইডি পাওয়া যায়নি।")
 
 st.markdown("---")
-st.caption("* FuelGuard Pro - উন্নত ও নিরাপদ জ্বালানি বন্টন ব্যবস্থা।")
+st.caption("* ©FuelGuard Pro - বাংলাদেশ এবং এর নাগরিকদের জন্য উন্নত ও নিরাপদ জ্বালানি বন্টন ব্যবস্থা।")
