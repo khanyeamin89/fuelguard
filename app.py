@@ -62,7 +62,7 @@ def show_instruction():
 @st.dialog("⚠️ তথ্য নিশ্চিত করুন")
 def confirm_refill_dialog():
     data = st.session_state.temp_refill_data
-    st.write(f"আপনি কি নিশ্চিত যে **{data['rider_name']}**-কে **{data['liters']} লিটার {data['f_type']}** দিচ্ছেন?")
+    st.write(f"আপনি কি নিশ্চিত যে **{data['rider_name']}**-কে **{data['liters']} লিটার {data['fuel_type']}** দিচ্ছেন?")
     st.warning("একবার সেভ করলে ডাটাবেজে তথ্য স্থায়ীভাবে সংরক্ষিত হবে।")
     
     col1, col2 = st.columns(2)
