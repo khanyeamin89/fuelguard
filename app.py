@@ -25,7 +25,7 @@ def get_daily_pin():
 
 CURRENT_DAILY_PIN = get_daily_pin()
 
-# --- ২. Case-Insensitive ও Smart Search ফাংশন ---
+# --- ২. সাহায্যকারী ফাংশন (Smart Search) ---
 def clean_id(text):
     if not text: return ""
     return re.sub(r'[-\s]', '', str(text)).upper()
@@ -40,33 +40,52 @@ def get_user_by_id(search_id):
         return None
     except: return None
 
-# --- ৩. তথ্যবহুল পপ-আপ নির্দেশিকা ---
+# --- ৩. পপ-আপ নির্দেশিকা ও কনফার্মেশন ডায়ালগ ---
 @st.dialog("📖 FuelGuard Pro: ব্যবহারকারী নির্দেশিকা")
 def show_instruction():
     st.markdown("""
-    ### **স্বাগতম! অ্যাপটি ব্যবহারের নিয়মাবলী এক নজরে দেখে নিন:**
+    ### **স্বাগতম! অ্যাপটি ব্যবহারের নিয়মাবলী:**
     ---
-    #### **১. ব্যবহারকারীর ধরণ ও শর্ত (Categories)**
-    * **🚜 কৃষক (Farmer):** নিবন্ধনের জন্য **NID** এবং **UNO সার্টিফিকেট** নম্বর প্রয়োজন। আপনাদের জন্য রিফিলের সময়ের কোনো সীমাবদ্ধতা নেই।
-    * **🚑 সরকারি (Govt):** জরুরি সেবার যানবাহনের নিবন্ধনে **Office ID** প্রয়োজন। আপনাদের জন্যও ৭২ ঘণ্টার লক প্রযোজ্য নয়।
-    * **🏍️ সাধারণ (General):** নিবন্ধনের জন্য সঠিক **গাড়ির নাম্বার** প্রদান বাধ্যতামূলক। 
-    
-    #### **২. রিফিল এবং লক (Rules)**
-    * **৭২ ঘণ্টা নিয়ম:** সাধারণ রাইডাররা একবার তেল নেওয়ার পর পরবর্তী **৭২ ঘণ্টা** পর্যন্ত পুনরায় তেল নিতে পারবেন না। সার্চ করার সময় বড় বা ছোট হাতের অক্ষরের কোনো বাধ্যবাধকতা নেই।
+    #### **১. ক্যাটাগরি ও শর্ত**
+    * **🚜 কৃষক ও 🚑 সরকারি:** আপনাদের জন্য কোনো সময়ের সীমাবদ্ধতা (Lock) নেই।
+    * **🏍️ সাধারণ ব্যবহারকারী:** নিবন্ধনের পর রিফিলের ক্ষেত্রে **৭২ ঘণ্টা লক** প্রযোজ্য।
+    #### **২. স্মার্ট সার্চ**
+    * সার্চ করার সময় বড়/ছোট হাতের অক্ষর বা ড্যাশ (-) নিয়ে চিন্তা করতে হবে না।
     ---
-    💡 *সঠিক তথ্য প্রদান করে ডিজিটাল জ্বালানি ব্যবস্থাপনায় সহায়তা করুন।*
+    💡 *সঠিক তথ্য প্রদান করে আমাদের সহযোগিতা করুন।*
     """)
     if st.button("বুঝেছি, অ্যাপে প্রবেশ করুন", use_container_width=True, type="primary"):
-        st.session_state.seen_instruction = True
-        st.rerun()
+        st.session_state.seen_instruction = True; st.rerun()
 
+@st.dialog("⚠️ তথ্য নিশ্চিত করুন")
+def confirm_refill_dialog():
+    data = st.session_state.temp_refill_data
+    st.write(f"আপনি কি নিশ্চিত যে **{data['rider_name']}**-কে **{data['liters']} লিটার {data['fuel_type']}** দিচ্ছেন?")
+    st.warning("একবার সেভ করলে ডাটাবেজে তথ্য স্থায়ীভাবে সংরক্ষিত হবে।")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("হ্যাঁ, সেভ করুন", use_container_width=True, type="primary"):
+            update_vals = {"last_refill": data["last_refill"], "liters": data["liters"], "fuel_type": data["fuel_type"]}
+            if data["photo"]:
+                f_name = f"{data['rider_id']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+                supabase.storage.from_("fuel_photos").upload(f_name, data["photo"])
+            supabase.table("riders").update(update_vals).eq("rider_id", data['rider_id']).execute()
+            st.session_state.show_confirm_dialog = False
+            st.success("সফলভাবে সংরক্ষিত!"); st.rerun()
+    with col2:
+        if st.button("না, বাতিল", use_container_width=True):
+            st.session_state.show_confirm_dialog = False; st.rerun()
+
+# --- ৪. ইনিশিয়ালাইজেশন ---
 if "seen_instruction" not in st.session_state:
     show_instruction()
-
-# --- ৪. হোম পেজ ---
 if "app_mode" not in st.session_state:
     st.session_state.app_mode = None
+if st.session_state.get("show_confirm_dialog"):
+    confirm_refill_dialog()
 
+# --- ৫. হোম পেজ ---
 if st.session_state.app_mode is None:
     st.title("⛽ FuelGuard Pro: ক্যাটাগরি নির্বাচন করুন")
     st.markdown("---")
@@ -81,7 +100,7 @@ if st.session_state.app_mode is None:
         if st.button("🏢 পাম্প অপারেটর", use_container_width=True, type="primary"): st.session_state.app_mode = "Pump"; st.rerun()
     st.stop()
 
-# --- ৫. ইউজার পোর্টাল ---
+# --- ৬. ইউজার পোর্টাল ---
 if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
     if st.sidebar.button("⬅️ প্রধান পাতায় ফিরুন"):
         st.session_state.app_mode = None; st.rerun()
@@ -97,48 +116,41 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
             if user:
                 st.success(f"স্বাগতম, **{user['name'].title()}**")
                 is_exempt = user.get('category') in ["Farmer", "Govt"]
-                if is_exempt:
-                    st.info("✅ রিফিলের সময়ের কোনো সীমাবদ্ধতা নেই।")
+                if is_exempt: st.info("✅ আপনার জন্য কোনো লক প্রযোজ্য নয়।")
                 elif user['last_refill']:
                     unlock = datetime.strptime(user['last_refill'], "%Y-%m-%d %H:%M:%S") + timedelta(hours=LOCKOUT_HOURS)
-                    if datetime.now() < unlock:
-                        st.error(f"🚫 লক! তেল পাবেন: {unlock.strftime('%b %d, %I:%M %p')}")
+                    if datetime.now() < unlock: st.error(f"🚫 লক! তেল পাবেন: {unlock.strftime('%b %d, %I:%M %p')}")
                     else: st.success("✅ আপনি এখন তেল পাওয়ার যোগ্য।")
                 else: st.success("✅ আপনি এখন তেল পাওয়ার যোগ্য।")
             else: st.warning("আইডি পাওয়া যায়নি।")
 
     with tab2:
         with st.form("reg_form"):
-            reg_data = {"category": mode, "liters": 0, "last_refill": None}
             name_input = st.text_input("পুরো নাম")
-            v_num = "" 
+            reg_data = {"category": mode, "liters": 0, "last_refill": None}
             if mode in ["General", "Govt"]:
                 c_d, c_s, c_n = st.columns(3)
-                dist = c_d.selectbox("জেলা", sorted(BD_DISTRICTS), key=f"d_{mode}")
-                ser = c_s.selectbox("সিরিজ", SERIES_LIST, key=f"s_{mode}")
-                v_num = c_n.text_input("গাড়ির নাম্বার (উদা: 12-3456)", key=f"n_{mode}")
+                dist = c_d.selectbox("জেলা", sorted(BD_DISTRICTS))
+                ser = c_s.selectbox("সিরিজ", SERIES_LIST)
+                v_num = c_n.text_input("নাম্বার (উদা: 12-3456)")
                 reg_data["rider_id"] = f"{dist}-{ser}-{v_num}".upper()
-                if mode == "Govt":
-                    reg_data["work_id"] = st.text_input("অফিস আইডি")
-            elif mode == "Farmer":
+            else:
                 reg_data["rider_id"] = st.text_input("NID নাম্বার")
                 reg_data["uno_cert"] = st.text_input("UNO সার্টিফিকেট নম্বর")
 
             if st.form_submit_button("নিবন্ধন সম্পন্ন করুন"):
-                if name_input:
+                if name_input and reg_data["rider_id"]:
                     reg_data["name"] = name_input.strip().title()
                     try:
                         supabase.table("riders").insert(reg_data).execute()
                         st.success("নিবন্ধন সফল!"); st.balloons()
-                    except: st.error("ইতিমধ্যে নিবন্ধিত!")
+                    except: st.error("এই আইডিটি ইতিমধ্যে নিবন্ধিত!")
 
-# --- ৬. পাম্প অপারেটর প্যানেল (ফিক্সড সেকশন) ---
+# --- ৭. পাম্প অপারেটর প্যানেল ---
 elif st.session_state.app_mode == "Pump":
     if "pump_auth" not in st.session_state: st.session_state.pump_auth = False
-    
-    if st.session_state.pump_auth:
-        if st.sidebar.button("⬅️ প্রধান পাতায় ফিরুন"):
-            st.session_state.pump_auth = False; st.session_state.app_mode = None; st.rerun()
+    if st.session_state.pump_auth and st.sidebar.button("⬅️ প্রধান পাতায় ফিরুন"):
+        st.session_state.pump_auth = False; st.session_state.app_mode = None; st.rerun()
 
     if not st.session_state.pump_auth:
         st.title("🏢 পাম্প স্টেশন লগইন")
@@ -148,54 +160,38 @@ elif st.session_state.app_mode == "Pump":
             else: st.error("ভুল পিন!")
     else:
         st.title("⛽ পাম্প অপারেশন")
-        p_search = st.text_input("সার্চ (গাড়ির নাম্বার বা NID)")
-        
+        p_search = st.text_input("সার্চ করুন (আইডি বা নাম্বার)")
         if p_search:
             user = get_user_by_id(p_search)
             if user:
-                # ১. NameError এড়াতে আগে থেকেই eligible ডিফাইন করা হলো
-                eligible = False 
-                unlock_time = None
-                
-                # ২. যোগ্যতা যাচাই লজিক
+                eligible = False; unlock_time = None
                 is_exempt = user.get('category') in ["Farmer", "Govt"]
-                if is_exempt:
-                    eligible = True
+                if is_exempt: eligible = True
                 elif user['last_refill']:
                     unlock_time = datetime.strptime(user['last_refill'], "%Y-%m-%d %H:%M:%S") + timedelta(hours=LOCKOUT_HOURS)
                     eligible = datetime.now() >= unlock_time
-                else:
-                    eligible = True
+                else: eligible = True
 
-                # ৩. UI ডিসপ্লে
                 st.info(f"ইউজার: **{user['name'].title()}** | ক্যাটাগরি: {user['category']}")
-                
                 if eligible:
                     st.success("✅ রিফিল অনুমোদিত")
                     with st.container(border=True):
                         c_i, col_p = st.columns(2)
                         with c_i:
-                            f_type = st.selectbox("টাইপ", ["Petrol", "Octane", "Diesel"])
-                            liters = st.number_input("লিটার (সর্বোচ্চ ১০০)", 1.0, 100.0, 5.0)
-                        with col_p:
-                            photo = st.camera_input("ছবি (ঐচ্ছিক)")
+                            f_type = st.selectbox("জ্বালানি", ["Petrol", "Octane", "Diesel"])
+                            liters = st.number_input("লিটার (১-১০০)", 1.0, 100.0, 5.0)
+                        with col_p: photo = st.camera_input("ছবি (ঐচ্ছিক)")
                         
-                        # অপারেটরের ভুল কমানোর জন্য চেক বক্স
-                        confirm = st.checkbox(f"আমি নিশ্চিত যে {user['name'].title()} কে {liters} লিটার তেল দিচ্ছি")
-                        
-                        if st.button("💾 ডাটা সেভ করুন", use_container_width=True, type="primary", disabled=not confirm):
-                            update_vals = {
-                                "last_refill": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
-                                "liters": float(liters), 
-                                "fuel_type": f_type
+                        if st.button("💾 ডাটা সেভ করুন", use_container_width=True, type="primary"):
+                            st.session_state.temp_refill_data = {
+                                "last_refill": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "liters": float(liters), "fuel_type": f_type,
+                                "rider_id": user['rider_id'], "rider_name": user['name'].title(),
+                                "photo": photo.getvalue() if photo else None
                             }
-                            if photo:
-                                f_name = f"{user['rider_id']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
-                                supabase.storage.from_("fuel_photos").upload(f_name, photo.getvalue())
-                            
-                            supabase.table("riders").update(update_vals).eq("rider_id", user['rider_id']).execute()
-                            st.success("সফলভাবে সংরক্ষিত!"); st.rerun()
-                else:
-                    st.error(f"🚫 ইউজার লকড! পুনরায় তেল পাবেন: {unlock_time.strftime('%b %d, %I:%M %p')}")
-            else:
-                st.error("আইডি পাওয়া যায়নি।")
+                            st.session_state.show_confirm_dialog = True; st.rerun()
+                else: st.error(f"🚫 ইউজার লকড! পুনরায় তেল পাবেন: {unlock_time.strftime('%b %d, %I:%M %p')}")
+            else: st.error("আইডি পাওয়া যায়নি।")
+
+st.markdown("---")
+st.caption("* FuelGuard Pro - উন্নত ও নিরাপদ জ্বালানি বন্টন ব্যবস্থা।")
