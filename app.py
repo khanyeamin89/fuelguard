@@ -176,18 +176,17 @@ elif st.session_state.app_mode == "Pump":
         st.session_state.app_mode = None
         st.rerun()
 
-    # --- পিন ভেরিফিকেশন লজিক ---
+    # --- ১. পিন ভেরিফিকেশন (Security) ---
     if "operator_auth" not in st.session_state:
         st.session_state.operator_auth = False
 
     if not st.session_state.operator_auth:
         st.title("🔒 অপারেটর লগইন")
-        # প্রতিদিনের জন্য ডায়নামিক পিন জেনারেট করা
         base_pin = st.secrets.get("BASE_PIN", "1234")
-        daily_pin = f"{base_pin}{datetime.now().strftime('%d')}" # উদা: 556613 (যদি ১৩ তারিখ হয়)
+        # প্রতিদিনের তারিখ অনুযায়ী ডায়নামিক পিন
+        daily_pin = f"{base_pin}{datetime.now().strftime('%d')}"
         
-        entered_pin = st.text_input("সিকিউরিটি পিন দিন", type="password", help="আপনার নির্ধারিত পিন এবং আজকের তারিখ")
-        
+        entered_pin = st.text_input("সিকিউরিটি পিন দিন", type="password")
         if st.button("লগইন", type="primary"):
             if entered_pin == daily_pin:
                 st.session_state.operator_auth = True
@@ -195,25 +194,50 @@ elif st.session_state.app_mode == "Pump":
                 st.rerun()
             else:
                 st.error("ভুল পিন! দয়া করে সঠিক পিন দিন।")
-        st.stop() # পিন না দেওয়া পর্যন্ত নিচের কোড চলবে না
+        st.stop()
 
-    # --- লগইন সফল হলে নিচের অংশটুকু দেখা যাবে ---
-    st.title("🏢 পাম্প অপারেটর কন্ট্রোল")
-    st.write(f"অপারেটর: **নিবন্ধিত** | তারিখ: {datetime.now().strftime('%d %b, %Y')}")
+    # --- ২. লগইন সফল হলে অপারেটর ইন্টারফেস ---
+    st.title("🏢 পাম্প অপারেটর ড্যাশবোর্ড")
     
-    p_id = st.text_input("QR স্ক্যান বা আইডি লিখুন")
+    # ইনপুট মেথড সিলেকশন (এখন ৩টি অপশন)
+    input_method = st.radio("ডাটা এন্ট্রি পদ্ধতি:", 
+                            ["QR স্ক্যান করুন", "প্লেট স্ক্যান (AI)", "ম্যানুয়াল টাইপ"], 
+                            horizontal=True)
     
+    p_id = ""
+    
+    if input_method == "QR স্ক্যান করুন":
+        st.write("রাইডারের QR কোডটি ক্যামেরার সামনে ধরুন:")
+        scanned_data = qrcode_scanner(key='pump_qr_scanner')
+        if scanned_data:
+            p_id = scanned_data
+            st.success(f"QR শনাক্ত হয়েছে: {p_id}")
+            
+    elif input_method == "প্লেট স্ক্যান (AI)":
+        st.write("গাড়ির নাম্বার প্লেটের স্পষ্ট ছবি তুলুন:")
+        plate_img = st.camera_input("ক্যামেরা ওপেন করুন", key="pump_plate_scanner")
+        if plate_img:
+            with st.spinner("AI প্লেট নম্বর রিড করছে..."):
+                extracted_id, raw_txt = process_ai_image(plate_img)
+                st.info(f"শনাক্তকৃত টেক্সট: {raw_txt}")
+                p_id = extracted_id
+    
+    else:
+        p_id = st.text_input("আইডি বা প্লেট নম্বর লিখুন")
+
+    # ডাটাবেজ থেকে ইউজার চেক ও রিফিল ফর্ম
     if p_id:
         user = get_user_by_id(p_id)
         if user:
-            st.info(f"ইউজার: {user['name']} ({user['category']})")
+            st.info(f"**রাইডারের নাম:** {user['name']} | **ক্যাটাগরি:** {user['category']}")
             
-            # রিফিল ফর্ম
+            # রিফিল ইনপুট ফর্ম
             with st.container(border=True):
-                f_type = st.selectbox("জ্বালানি", ["Petrol", "Octane", "Diesel"])
-                liters = st.number_input("পরিমাণ (লিটার)", 1.0, 100.0, 5.0)
+                col_f, col_l = st.columns(2)
+                f_type = col_f.selectbox("জ্বালানির ধরণ", ["Octane", "Diesel", "Petrol"])
+                liters = col_l.number_input("লিটারের পরিমাণ", 1.0, 100.0, 5.0)
                 
-                if st.button("রিফিল সেভ করুন", type="primary"):
+                if st.button("রিফিল রেকর্ড সেভ করুন", type="primary", use_container_width=True):
                     confirm_refill_popup({
                         "id": user['rider_id'], 
                         "name": user['name'], 
@@ -221,9 +245,9 @@ elif st.session_state.app_mode == "Pump":
                         "type": f_type
                     })
         else:
-            st.error("ইউজার পাওয়া যায়নি।")
-    
-    if st.button("লগআউট"):
+            st.error("ডাটাবেজে কোনো রেকর্ড পাওয়া যায়নি। প্লেট স্ক্যান ভুল হলে ম্যানুয়ালি ট্রাই করুন।")
+
+    if st.sidebar.button("🚪 লগআউট"):
         st.session_state.operator_auth = False
         st.rerun()
 st.markdown("---")
