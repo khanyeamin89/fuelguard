@@ -183,3 +183,5 @@ elif st.session_state.app_mode == "Pump":
             if st.button("সেভ করুন", type="primary"):
                 confirm_refill_popup({"id": user['rider_id'], "name": user['name'], "liters": liters, "type": f_type})
         else: st.error("ইউজার পাওয়া যায়নি।")
+st.markdown("---")
+st.caption("FuelGuard Pro 2026 | বাংলাদেশের মানুষের জন্য")
