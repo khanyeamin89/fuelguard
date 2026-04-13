@@ -93,15 +93,15 @@ def confirm_refill_popup(data):
 # --- ৪. ইউজার ইন্টারফেস (UI) ---
 if "app_mode" not in st.session_state: st.session_state.app_mode = None
 """
-if st.session_state.app_mode is None:
-    st.title("⛽ FuelGuard Pro")
-    st.subheader("আপনার ক্যাটাগরি বেছে নিন")
-    c1, c2 = st.columns(2)
-    if c1.button("🚜 কৃষক (Farmer)"): st.session_state.app_mode = "Farmer"; st.rerun()
-    if c2.button("🚑 সরকারি (Govt)"): st.session_state.app_mode = "Govt"; st.rerun()
-    if c1.button("🏍️ সাধারণ (General)"): st.session_state.app_mode = "General"; st.rerun()
-    if c2.button("🏢 পাম্প অপারেটর", type="primary"): st.session_state.app_mode = "Pump"; st.rerun()
-    st.stop()
+##if st.session_state.app_mode is None:
+  ##  st.title("⛽ FuelGuard Pro")
+    ## st.subheader("আপনার ক্যাটাগরি বেছে নিন")
+    ## c1, c2 = st.columns(2)
+    ## if c1.button("🚜 কৃষক (Farmer)"): st.session_state.app_mode = "Farmer"; st.rerun()
+    ##  if c2.button("🚑 সরকারি (Govt)"): st.session_state.app_mode = "Govt"; st.rerun()
+    ## if c1.button("🏍️ সাধারণ (General)"): st.session_state.app_mode = "General"; st.rerun()
+    ## if c2.button("🏢 পাম্প অপারেটর", type="primary"): st.session_state.app_mode = "Pump"; st.rerun()
+    ## st.stop()
 """
 # হোম স্ক্রিন UI
 if st.session_state.app_mode is None:
