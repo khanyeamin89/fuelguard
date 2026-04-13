@@ -105,52 +105,60 @@ if "app_mode" not in st.session_state: st.session_state.app_mode = None
 
 # হোম স্ক্রিন UI
 if st.session_state.app_mode is None:
-    # বাটন বড় করার জন্য কাস্টম CSS
+    # মোবাইল এবং ডেস্কটপ উভয়ের জন্য অ্যাডভান্সড CSS
     st.markdown("""
         <style>
-        div.stButton > button:first-child {
-            height: 100px;
-            font-size: 24px !important;
-            font-weight: bold;
-            border-radius: 15px;
-            border: 2px solid #e0e0e0;
-            background-color: #ffffff;
-            transition: all 0.3s ease;
+        /* বেসিক বাটন স্টাইল */
+        div.stButton > button {
+            height: 120px !important;
+            font-size: 20px !important;
+            font-weight: bold !important;
+            border-radius: 12px !important;
+            margin-bottom: 10px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            white-space: normal !important; /* লেখা ভেঙে নিচে আসবে */
+            line-height: 1.2 !important;
         }
+
+        /* মোবাইলের জন্য বিশেষ অ্যাডজাস্টমেন্ট */
+        @media (max-width: 640px) {
+            div.stButton > button {
+                height: 100px !important;
+                font-size: 18px !important;
+                padding: 5px !important;
+            }
+            .stTitle {
+                font-size: 28px !important;
+            }
+        }
+        
+        /* হোভার ইফেক্ট */
         div.stButton > button:hover {
-            border-color: #ff4b4b;
-            color: #ff4b4b;
-            transform: scale(1.02);
-        }
-        /* পাম্প অপারেটর বাটনের জন্য আলাদা লাল থিম */
-        div.stButton > button[kind="primary"] {
-            background-color: #ff4b4b !important;
-            color: white !important;
-            border: none;
+            border: 2px solid #ff4b4b !important;
+            color: #ff4b4b !important;
         }
         </style>
     """, unsafe_allow_html=True)
 
     st.title("⛽ FuelGuard Pro")
     st.subheader("আপনার ক্যাটাগরি বেছে নিন")
-    st.write("---") # একটি ডিভাইডার লাইন
+    st.write("---")
 
-    # বাটনগুলো বড় করে দেখানোর জন্য ২টি কলাম
-    col1, col2 = st.columns(2, gap="medium")
+    # মোবাইলে বাটনগুলো যাতে একটার নিচে একটা আসে তাই কলাম গ্যাপ কমানো হয়েছে
+    col1, col2 = st.columns(2)
     
     with col1:
-        if st.button("🚜 কৃষক (Farmer)", use_container_width=True): 
+        if st.button("🚜 কৃষক\n(Farmer)", use_container_width=True): 
             st.session_state.app_mode = "Farmer"; st.rerun()
-        st.write(" ") # স্পেস
-        if st.button("🏍️ সাধারণ (General)", use_container_width=True): 
+        if st.button("🏍️ সাধারণ\n(General)", use_container_width=True): 
             st.session_state.app_mode = "General"; st.rerun()
 
     with col2:
-        if st.button("🚑 সরকারি (Govt)", use_container_width=True): 
+        if st.button("🚑 সরকারি\n(Govt)", use_container_width=True): 
             st.session_state.app_mode = "Govt"; st.rerun()
-        st.write(" ") # স্পেস
-        # এটি প্রাইমারি বাটন হিসেবে লাল দেখাবে
-        if st.button("🏢 পাম্প অপারেটর", type="primary", use_container_width=True): 
+        if st.button("🏢 পাম্প\nঅপারেটর", type="primary", use_container_width=True): 
             st.session_state.app_mode = "Pump"; st.rerun()
     
     st.stop()
