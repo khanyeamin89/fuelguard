@@ -2,6 +2,9 @@ import streamlit as st
 from supabase import create_client, Client
 from datetime import datetime, timedelta
 import re
+import qrcode
+from io import BytesIO
+from streamlit_qrcode_scanner import qrcode_scanner
 
 # --- ১. কনফিগারেশন ও কানেকশন ---
 st.set_page_config(page_title="FuelGuard Pro", page_icon="⛽", layout="wide")
@@ -25,7 +28,7 @@ def get_daily_pin():
 
 CURRENT_DAILY_PIN = get_daily_pin()
 
-# --- ২. সাহায্যকারী ফাংশন (Smart Search) ---
+# --- ২. সাহায্যকারী ফাংশন ---
 def clean_id(text):
     if not text: return ""
     return re.sub(r'[-\s]', '', str(text)).upper()
@@ -40,21 +43,27 @@ def get_user_by_id(search_id):
         return None
     except: return None
 
-# --- ৩. পপ-আপ নির্দেশিকা ও কনফার্মেশন ডায়ালগ ---
+def generate_qr(data):
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+    qr.add_data(data)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = BytesIO()
+    img.save(buf)
+    return buf.getvalue()
+
+# --- ৩. পপ-আপ ডায়ালগসমূহ ---
 @st.dialog("📖 FuelGuard Pro: ব্যবহারকারী নির্দেশিকা")
 def show_instruction():
     st.markdown("""
     ### **স্বাগতম! অ্যাপটি ব্যবহারের নিয়মাবলী:**
     ---
-    #### **১. ক্যাটাগরি ও শর্ত**
-    * **আপনি নিজে এবং অন্য কারো eligibility চেক করতে পারবেন** 
-    * ** খুব সহজেই নিবন্ধন করা যায়** 
-    * **🚜 কৃষক ও 🚑 সরকারি:** আপনাদের জন্য কোনো সময়ের সীমাবদ্ধতা (Lock) নেই।
-    * **🏍️ সাধারণ ব্যবহারকারী:** নিবন্ধনের পর রিফিলের ক্ষেত্রে **৭২ ঘণ্টা লক** প্রযোজ্য।
-    #### **২. স্মার্ট সার্চ**
-    * সার্চ করার সময় বড়/ছোট হাতের অক্ষর বা ড্যাশ (-) নিয়ে চিন্তা করতে হবে না।
+    #### **১. QR কোড সুবিধা**
+    * নিবন্ধনের পর আপনার **QR কোডটি সেভ করুন**। পরবর্তীতে পাম্পে স্ক্যান করলেই দ্রুত তেল পাবেন।
+    #### **২. ক্যাটাগরি ও লক**
+    * সাধারণ রাইডারদের জন্য **৭২ ঘণ্টা লক** প্রযোজ্য। কৃষক ও সরকারি যানবাহনে লক নেই।
     ---
-    💡 *সঠিক তথ্য প্রদান করে আমাদের সহযোগিতা করুন।*
+    💡 *সহজ ও ডিজিটাল জ্বালানি ব্যবস্থাপনায় আমাদের সাথেই থাকুন।*
     """)
     if st.button("বুঝেছি, অ্যাপে প্রবেশ করুন", use_container_width=True, type="primary"):
         st.session_state.seen_instruction = True; st.rerun()
@@ -63,8 +72,6 @@ def show_instruction():
 def confirm_refill_dialog():
     data = st.session_state.temp_refill_data
     st.write(f"আপনি কি নিশ্চিত যে **{data['rider_name']}**-কে **{data['liters']} লিটার {data['fuel_type']}** দিচ্ছেন?")
-    st.warning("একবার সেভ করলে ডাটাবেজে তথ্য স্থায়ীভাবে সংরক্ষিত হবে।")
-    
     col1, col2 = st.columns(2)
     with col1:
         if st.button("হ্যাঁ, সেভ করুন", use_container_width=True, type="primary"):
@@ -117,13 +124,9 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
             user = get_user_by_id(s_id)
             if user:
                 st.success(f"স্বাগতম, **{user['name'].title()}**")
-                is_exempt = user.get('category') in ["Farmer", "Govt"]
-                if is_exempt: st.info("✅ আপনার জন্য কোনো লক প্রযোজ্য নয়।")
-                elif user['last_refill']:
-                    unlock = datetime.strptime(user['last_refill'], "%Y-%m-%d %H:%M:%S") + timedelta(hours=LOCKOUT_HOURS)
-                    if datetime.now() < unlock: st.error(f"🚫 লক! তেল পাবেন: {unlock.strftime('%b %d, %I:%M %p')}")
-                    else: st.success("✅ আপনি এখন তেল পাওয়ার যোগ্য।")
-                else: st.success("✅ আপনি এখন তেল পাওয়ার যোগ্য।")
+                qr_img = generate_qr(user['rider_id'])
+                st.image(qr_img, caption="আপনার পার্সোনাল QR কোড", width=150)
+                st.download_button("QR ডাউনলোড করুন", qr_img, file_name="my_qr.png", mime="image/png")
             else: st.warning("আইডি পাওয়া যায়নি।")
 
     with tab2:
@@ -132,18 +135,10 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
             reg_data = {"category": mode, "liters": 0, "last_refill": None}
             if mode in ["General", "Govt"]:
                 c_d, c_s, c_n = st.columns(3)
-                dist = c_d.selectbox("জেলা", sorted(BD_DISTRICTS), key=f"d_{mode}")
-                ser = c_s.selectbox("সিরিজ", SERIES_LIST, key=f"s_{mode}")
-                v_num = c_n.text_input("গাড়ির নাম্বার (উদা: 12-3456)", key=f"n_{mode}")
+                dist = c_d.selectbox("জেলা", sorted(BD_DISTRICTS))
+                ser = c_s.selectbox("সিরিজ", SERIES_LIST)
+                v_num = c_n.text_input("নাম্বার")
                 reg_data["rider_id"] = f"{dist}-{ser}-{v_num}".upper()
-                if mode == "Govt":
-                    reg_data["work_id"] = st.text_input("অফিস আইডি / দপ্তরের নাম")
-    ##        if mode in ["General", "Govt"]:
-    ##            c_d, c_s, c_n = st.columns(3)
-    ##            dist = c_d.selectbox("জেলা", sorted(BD_DISTRICTS))
-      ##          ser = c_s.selectbox("সিরিজ", SERIES_LIST)
-      ##          v_num = c_n.text_input("নাম্বার (উদা: 12-3456)")
-      ##          reg_data["rider_id"] = f"{dist}-{ser}-{v_num}".upper()
             else:
                 reg_data["rider_id"] = st.text_input("NID নাম্বার")
                 reg_data["uno_cert"] = st.text_input("UNO সার্টিফিকেট নম্বর")
@@ -153,7 +148,11 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
                     reg_data["name"] = name_input.strip().title()
                     try:
                         supabase.table("riders").insert(reg_data).execute()
-                        st.success("নিবন্ধন সফল!"); st.balloons()
+                        st.success("নিবন্ধন সফল! নিচের QR কোডটি সেভ করুন।")
+                        qr_img = generate_qr(reg_data["rider_id"])
+                        st.image(qr_img, width=200)
+                        st.download_button("QR কোড ডাউনলোড", qr_img, file_name=f"{reg_data['rider_id']}.png")
+                        st.balloons()
                     except: st.error("এই আইডিটি ইতিমধ্যে নিবন্ধিত!")
 
 # --- ৭. পাম্প অপারেটর প্যানেল ---
@@ -170,7 +169,13 @@ elif st.session_state.app_mode == "Pump":
             else: st.error("ভুল পিন!")
     else:
         st.title("⛽ পাম্প অপারেশন")
-        p_search = st.text_input("সার্চ করুন (আইডি বা নাম্বার)")
+        
+        # QR Scanner Section
+        st.subheader("📸 QR স্ক্যানার")
+        scanned_id = qrcode_scanner(key='pump_scanner')
+        
+        p_search = st.text_input("অথবা আইডি টাইপ করুন", value=scanned_id if scanned_id else "")
+        
         if p_search:
             user = get_user_by_id(p_search)
             if user:
@@ -189,7 +194,7 @@ elif st.session_state.app_mode == "Pump":
                         c_i, col_p = st.columns(2)
                         with c_i:
                             f_type = st.selectbox("জ্বালানি", ["Petrol", "Octane", "Diesel"])
-                            liters = st.number_input("লিটার (১-১০০)", 1.0, 100.0, 5.0)
+                            liters = st.number_input("লিটার", 1.0, 100.0, 5.0)
                         with col_p: photo = st.camera_input("ছবি (ঐচ্ছিক)")
                         
                         if st.button("💾 ডাটা সেভ করুন", use_container_width=True, type="primary"):
@@ -200,8 +205,8 @@ elif st.session_state.app_mode == "Pump":
                                 "photo": photo.getvalue() if photo else None
                             }
                             st.session_state.show_confirm_dialog = True; st.rerun()
-                else: st.error(f"🚫 ইউজার লকড! পুনরায় তেল পাবেন: {unlock_time.strftime('%b %d, %I:%M %p')}")
+                else: st.error(f"🚫 লকড! তেল পাবেন: {unlock_time.strftime('%b %d, %I:%M %p')}")
             else: st.error("আইডি পাওয়া যায়নি।")
 
 st.markdown("---")
-st.caption("* ©FuelGuard Pro - বাংলাদেশ এবং এর নাগরিকদের জন্য উন্নত ও নিরাপদ জ্বালানি বন্টন ব্যবস্থা।")
+st.caption("FuelGuard Pro © 2026 | দ্রুত ও নিরাপদ জ্বালানি বন্টন")
