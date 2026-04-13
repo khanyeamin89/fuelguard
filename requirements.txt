@@ -8,3 +8,7 @@ streamlit
 supabase
 qrcode
 streamlit-qrcode-scanner
+easyocr
+opencv-python-headless
+numpy
+Pillow
