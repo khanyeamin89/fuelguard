@@ -92,7 +92,7 @@ def confirm_refill_popup(data):
 
 # --- ৪. ইউজার ইন্টারফেস (UI) ---
 if "app_mode" not in st.session_state: st.session_state.app_mode = None
-"""
+
 ##if st.session_state.app_mode is None:
   ##  st.title("⛽ FuelGuard Pro")
     ## st.subheader("আপনার ক্যাটাগরি বেছে নিন")
@@ -102,7 +102,7 @@ if "app_mode" not in st.session_state: st.session_state.app_mode = None
     ## if c1.button("🏍️ সাধারণ (General)"): st.session_state.app_mode = "General"; st.rerun()
     ## if c2.button("🏢 পাম্প অপারেটর", type="primary"): st.session_state.app_mode = "Pump"; st.rerun()
     ## st.stop()
-"""
+
 # হোম স্ক্রিন UI
 if st.session_state.app_mode is None:
     # বাটন বড় করার জন্য কাস্টম CSS
