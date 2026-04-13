@@ -171,17 +171,60 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
                         else: st.error(f"ত্রুটি: {e}")
 
 elif st.session_state.app_mode == "Pump":
-    if st.sidebar.button("⬅️ প্রধান পাতায়"): st.session_state.app_mode = None; st.rerun()
-    st.title("🏢 পাম্প অপারেটর প্যানেল")
+    if st.sidebar.button("⬅️ Home"): 
+        st.session_state.operator_auth = False
+        st.session_state.app_mode = None
+        st.rerun()
+
+    # --- পিন ভেরিফিকেশন লজিক ---
+    if "operator_auth" not in st.session_state:
+        st.session_state.operator_auth = False
+
+    if not st.session_state.operator_auth:
+        st.title("🔒 অপারেটর লগইন")
+        # প্রতিদিনের জন্য ডায়নামিক পিন জেনারেট করা
+        base_pin = st.secrets.get("BASE_PIN", "1234")
+        daily_pin = f"{base_pin}{datetime.now().strftime('%d')}" # উদা: 556613 (যদি ১৩ তারিখ হয়)
+        
+        entered_pin = st.text_input("সিকিউরিটি পিন দিন", type="password", help="আপনার নির্ধারিত পিন এবং আজকের তারিখ")
+        
+        if st.button("লগইন", type="primary"):
+            if entered_pin == daily_pin:
+                st.session_state.operator_auth = True
+                st.success("লগইন সফল!")
+                st.rerun()
+            else:
+                st.error("ভুল পিন! দয়া করে সঠিক পিন দিন।")
+        st.stop() # পিন না দেওয়া পর্যন্ত নিচের কোড চলবে না
+
+    # --- লগইন সফল হলে নিচের অংশটুকু দেখা যাবে ---
+    st.title("🏢 পাম্প অপারেটর কন্ট্রোল")
+    st.write(f"অপারেটর: **নিবন্ধিত** | তারিখ: {datetime.now().strftime('%d %b, %Y')}")
+    
     p_id = st.text_input("QR স্ক্যান বা আইডি লিখুন")
+    
     if p_id:
         user = get_user_by_id(p_id)
         if user:
             st.info(f"ইউজার: {user['name']} ({user['category']})")
-            f_type = st.selectbox("জ্বালানি", ["Petrol", "Octane", "Diesel"])
-            liters = st.number_input("পরিমাণ (লিটার)", 1.0, 100.0, 5.0)
-            if st.button("সেভ করুন", type="primary"):
-                confirm_refill_popup({"id": user['rider_id'], "name": user['name'], "liters": liters, "type": f_type})
-        else: st.error("ইউজার পাওয়া যায়নি।")
+            
+            # রিফিল ফর্ম
+            with st.container(border=True):
+                f_type = st.selectbox("জ্বালানি", ["Petrol", "Octane", "Diesel"])
+                liters = st.number_input("পরিমাণ (লিটার)", 1.0, 100.0, 5.0)
+                
+                if st.button("রিফিল সেভ করুন", type="primary"):
+                    confirm_refill_popup({
+                        "id": user['rider_id'], 
+                        "name": user['name'], 
+                        "liters": liters, 
+                        "type": f_type
+                    })
+        else:
+            st.error("ইউজার পাওয়া যায়নি।")
+    
+    if st.button("লগআউট"):
+        st.session_state.operator_auth = False
+        st.rerun()
 st.markdown("---")
 st.caption("FuelGuard Pro 2026 | বাংলাদেশের মানুষের জন্য")
