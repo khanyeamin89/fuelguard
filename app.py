@@ -92,7 +92,7 @@ def confirm_refill_popup(data):
 
 # --- ৪. ইউজার ইন্টারফেস (UI) ---
 if "app_mode" not in st.session_state: st.session_state.app_mode = None
-
+"""
 if st.session_state.app_mode is None:
     st.title("⛽ FuelGuard Pro")
     st.subheader("আপনার ক্যাটাগরি বেছে নিন")
@@ -102,7 +102,58 @@ if st.session_state.app_mode is None:
     if c1.button("🏍️ সাধারণ (General)"): st.session_state.app_mode = "General"; st.rerun()
     if c2.button("🏢 পাম্প অপারেটর", type="primary"): st.session_state.app_mode = "Pump"; st.rerun()
     st.stop()
+"""
+# হোম স্ক্রিন UI
+if st.session_state.app_mode is None:
+    # বাটন বড় করার জন্য কাস্টম CSS
+    st.markdown("""
+        <style>
+        div.stButton > button:first-child {
+            height: 100px;
+            font-size: 24px !important;
+            font-weight: bold;
+            border-radius: 15px;
+            border: 2px solid #e0e0e0;
+            background-color: #ffffff;
+            transition: all 0.3s ease;
+        }
+        div.stButton > button:hover {
+            border-color: #ff4b4b;
+            color: #ff4b4b;
+            transform: scale(1.02);
+        }
+        /* পাম্প অপারেটর বাটনের জন্য আলাদা লাল থিম */
+        div.stButton > button[kind="primary"] {
+            background-color: #ff4b4b !important;
+            color: white !important;
+            border: none;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
+    st.title("⛽ FuelGuard Pro")
+    st.subheader("আপনার ক্যাটাগরি বেছে নিন")
+    st.write("---") # একটি ডিভাইডার লাইন
+
+    # বাটনগুলো বড় করে দেখানোর জন্য ২টি কলাম
+    col1, col2 = st.columns(2, gap="medium")
+    
+    with col1:
+        if st.button("🚜 কৃষক (Farmer)", use_container_width=True): 
+            st.session_state.app_mode = "Farmer"; st.rerun()
+        st.write(" ") # স্পেস
+        if st.button("🏍️ সাধারণ (General)", use_container_width=True): 
+            st.session_state.app_mode = "General"; st.rerun()
+
+    with col2:
+        if st.button("🚑 সরকারি (Govt)", use_container_width=True): 
+            st.session_state.app_mode = "Govt"; st.rerun()
+        st.write(" ") # স্পেস
+        # এটি প্রাইমারি বাটন হিসেবে লাল দেখাবে
+        if st.button("🏢 পাম্প অপারেটর", type="primary", use_container_width=True): 
+            st.session_state.app_mode = "Pump"; st.rerun()
+    
+    st.stop()
 # পোর্টাল লজিক
 if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
     if st.sidebar.button("⬅️ প্রধান পাতায়"): st.session_state.app_mode = None; st.rerun()
