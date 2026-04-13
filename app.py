@@ -109,7 +109,7 @@ if st.session_state.app_mode is None:
         if st.button("🏢 পাম্প অপারেটর", use_container_width=True, type="primary"): st.session_state.app_mode = "Pump"; st.rerun()
     st.stop()
 
-# --- ৬. ইউজার পোর্টাল ---
+# --- ৬. ইউজার পোর্টাল (Registration & QR Generator) ---
 if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
     if st.sidebar.button("⬅️ প্রধান পাতায় ফিরুন"):
         st.session_state.app_mode = None; st.rerun()
@@ -126,7 +126,7 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
                 st.success(f"স্বাগতম, **{user['name'].title()}**")
                 qr_img = generate_qr(user['rider_id'])
                 st.image(qr_img, caption="আপনার পার্সোনাল QR কোড", width=150)
-                st.download_button("QR ডাউনলোড করুন", qr_img, file_name="my_qr.png", mime="image/png")
+                st.download_button("QR ডাউনলোড করুন", qr_img, file_name=f"FuelGuard_{user['rider_id']}.png", mime="image/png")
             else: st.warning("আইডি পাওয়া যায়নি।")
 
     with tab2:
@@ -137,7 +137,7 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
                 c_d, c_s, c_n = st.columns(3)
                 dist = c_d.selectbox("জেলা", sorted(BD_DISTRICTS))
                 ser = c_s.selectbox("সিরিজ", SERIES_LIST)
-                v_num = c_n.text_input("নাম্বার")
+                v_num = c_n.text_input("নাম্বার (উদা: 12-3456)")
                 reg_data["rider_id"] = f"{dist}-{ser}-{v_num}".upper()
             else:
                 reg_data["rider_id"] = st.text_input("NID নাম্বার")
@@ -155,7 +155,7 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
                         st.balloons()
                     except: st.error("এই আইডিটি ইতিমধ্যে নিবন্ধিত!")
 
-# --- ৭. পাম্প অপারেটর প্যানেল ---
+# --- ৭. পাম্প অপারেটর প্যানেল (QR Scanner + Manual Entry) ---
 elif st.session_state.app_mode == "Pump":
     if "pump_auth" not in st.session_state: st.session_state.pump_auth = False
     if st.session_state.pump_auth and st.sidebar.button("⬅️ প্রধান পাতায় ফিরুন"):
@@ -170,11 +170,17 @@ elif st.session_state.app_mode == "Pump":
     else:
         st.title("⛽ পাম্প অপারেশন")
         
-        # QR Scanner Section
-        st.subheader("📸 QR স্ক্যানার")
-        scanned_id = qrcode_scanner(key='pump_scanner')
+        # QR স্ক্যানার সেকশন (ম্যানুয়াল এন্ট্রির পাশাপাশি)
+        with st.expander("📸 QR কোড স্ক্যান করুন", expanded=True):
+            scanned_id = qrcode_scanner(key='pump_scanner')
+            if scanned_id:
+                st.success(f"স্ক্যান সফল: {scanned_id}")
         
-        p_search = st.text_input("অথবা আইডি টাইপ করুন", value=scanned_id if scanned_id else "")
+        # পাম্প অপারেটর টাইপ করতে পারবেন অথবা স্ক্যান করা ভ্যালু অটোমেটিক বসে যাবে
+        p_search = st.text_input(
+            "আইডি বা গাড়ির নাম্বার দিন (ম্যানুয়াল বা স্ক্যান)", 
+            value=scanned_id if scanned_id else ""
+        )
         
         if p_search:
             user = get_user_by_id(p_search)
@@ -194,7 +200,7 @@ elif st.session_state.app_mode == "Pump":
                         c_i, col_p = st.columns(2)
                         with c_i:
                             f_type = st.selectbox("জ্বালানি", ["Petrol", "Octane", "Diesel"])
-                            liters = st.number_input("লিটার", 1.0, 100.0, 5.0)
+                            liters = st.number_input("লিটার (১-১০০)", 1.0, 100.0, 5.0)
                         with col_p: photo = st.camera_input("ছবি (ঐচ্ছিক)")
                         
                         if st.button("💾 ডাটা সেভ করুন", use_container_width=True, type="primary"):
@@ -209,4 +215,4 @@ elif st.session_state.app_mode == "Pump":
             else: st.error("আইডি পাওয়া যায়নি।")
 
 st.markdown("---")
-st.caption("FuelGuard Pro © 2026 | দ্রুত ও নিরাপদ জ্বালানি বন্টন")
+st.caption("FuelGuard Pro © 2026 | দ্রুত ও নিরাপদ জ্বালানি বন্টন ব্যবস্থাপনা")
