@@ -28,7 +28,19 @@ def get_daily_pin():
 
 CURRENT_DAILY_PIN = get_daily_pin()
 
-# --- ২. সাহায্যকারী ফাংশন ---
+# --- ২. সাহায্যকারী ফাংশন (Security & Search) ---
+def mask_name(name):
+    """নিরাপত্তার জন্য নামের মাঝের অংশ ঢেকে দেয়"""
+    if not name: return ""
+    parts = name.split()
+    masked_parts = []
+    for part in parts:
+        if len(part) > 2:
+            masked_parts.append(part[:2] + "*" * (len(part) - 2))
+        else:
+            masked_parts.append(part[0] + "*")
+    return " ".join(masked_parts)
+
 def clean_id(text):
     if not text: return ""
     return re.sub(r'[-\s]', '', str(text)).upper()
@@ -52,22 +64,19 @@ def generate_qr(data):
     img.save(buf)
     return buf.getvalue()
 
-# --- ৩. পপ-আপ ডায়ালগসমূহ ---
+# --- ৩. ডায়ালগসমূহ (Instructions & Confirmation) ---
 @st.dialog("📖 FuelGuard Pro: ব্যবহারকারী নির্দেশিকা")
 def show_instruction():
     st.markdown("""
     ### **স্বাগতম! অ্যাপটি ব্যবহারের নিয়মাবলী:**
     ---
-    #### **১. ক্যাটাগরি ও শর্ত (Categories)**
-    * **🚜 কৃষক (Farmer):** নিবন্ধনের জন্য NID এবং UNO সার্টিফিকেট নম্বর প্রয়োজন। আপনাদের জন্য রিফিলের সময়ের কোনো সীমাবদ্ধতা (Lock) নেই।
-    * **🚑 সরকারি (Govt):** জরুরি সেবার যানবাহনের জন্য অফিস আইডি প্রয়োজন। আপনাদের জন্যও ৭২ ঘণ্টার লক প্রযোজ্য নয়।
-    * **🏍️ সাধারণ (General):** নিবন্ধনের জন্য সঠিক গাড়ির নাম্বার প্রদান বাধ্যতামূলক। আপনাদের জন্য একবার তেল নেওয়ার পর **৭২ ঘণ্টা লক** প্রযোজ্য।
-    
-    #### **২. QR কোড সুবিধা**
-    * নিবন্ধনের পর আপনার **QR কোডটি সেভ করুন**। পরবর্তীতে পাম্পে স্ক্যান করলেই দ্রুত তেল পাবেন।
-    
+    #### **১. QR কোড ও নিরাপত্তা**
+    * আপনার তথ্য সুরক্ষার জন্য **Data Masking** ব্যবহার করা হয়েছে।
+    * নিবন্ধনের পর আপনার **QR কোডটি ডাউনলোড** করে রাখুন।
+    #### **২. রিফিল নিয়ম**
+    * সাধারণ রাইডারদের জন্য **৭২ ঘণ্টা লক** প্রযোজ্য। 
     ---
-    💡 *সঠিক তথ্য প্রদান করে ডিজিটাল জ্বালানি ব্যবস্থাপনায় সহায়তা করুন।*
+    💡 *সঠিক তথ্য প্রদান করে ডিজিটাল ব্যবস্থাপনায় সহায়তা করুন।*
     """)
     if st.button("বুঝেছি, অ্যাপে প্রবেশ করুন", use_container_width=True, type="primary"):
         st.session_state.seen_instruction = True; st.rerun()
@@ -75,10 +84,10 @@ def show_instruction():
 @st.dialog("⚠️ তথ্য নিশ্চিত করুন")
 def confirm_refill_dialog():
     data = st.session_state.temp_refill_data
-    st.write(f"আপনি কি নিশ্চিত যে **{data['rider_name']}**-কে **{data['liters']} লিটার {data['fuel_type']}** দিচ্ছেন?")
+    st.warning(f"আপনি কি নিশ্চিত যে **{data['rider_name']}**-কে **{data['liters']} লিটার {data['fuel_type']}** দিচ্ছেন?")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("হ্যাঁ, সেভ করুন", use_container_width=True, type="primary"):
+        if st.button("হ্যাঁ, নিশ্চিত করুন", use_container_width=True, type="primary"):
             update_vals = {"last_refill": data["last_refill"], "liters": data["liters"], "fuel_type": data["fuel_type"]}
             if data["photo"]:
                 f_name = f"{data['rider_id']}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
@@ -87,10 +96,10 @@ def confirm_refill_dialog():
             st.session_state.show_confirm_dialog = False
             st.success("সফলভাবে সংরক্ষিত!"); st.rerun()
     with col2:
-        if st.button("না, বাতিল", use_container_width=True):
+        if st.button("না, ফিরে যান", use_container_width=True):
             st.session_state.show_confirm_dialog = False; st.rerun()
 
-# --- ৪. ইনিশিয়ালাইজেশন ---
+# --- ৪. অ্যাপ ইনিশিয়ালাইজেশন ---
 if "seen_instruction" not in st.session_state:
     show_instruction()
 if "app_mode" not in st.session_state:
@@ -100,7 +109,7 @@ if st.session_state.get("show_confirm_dialog"):
 
 # --- ৫. হোম পেজ ---
 if st.session_state.app_mode is None:
-    st.title("⛽ FuelGuard Pro: ক্যাটাগরি নির্বাচন করুন")
+    st.title("⛽ FuelGuard Pro: প্রবেশ করুন")
     st.markdown("---")
     c1, c2 = st.columns(2); c3, c4 = st.columns(2)
     with c1:
@@ -113,29 +122,38 @@ if st.session_state.app_mode is None:
         if st.button("🏢 পাম্প অপারেটর", use_container_width=True, type="primary"): st.session_state.app_mode = "Pump"; st.rerun()
     st.stop()
 
-# --- ৬. ইউজার পোর্টাল (Registration & QR Generator) ---
+# --- ৬. ইউজার পোর্টাল ---
 if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
     if st.sidebar.button("⬅️ প্রধান পাতায় ফিরুন"):
         st.session_state.app_mode = None; st.rerun()
     
     mode = st.session_state.app_mode
     st.title(f"👤 {mode} পোর্টাল")
-    tab1, tab2 = st.tabs(["🔍 স্ট্যাটাস চেক", "📝 নতুন নিবন্ধন"])
+    tab1, tab2 = st.tabs(["🔍 স্ট্যাটাস ও QR চেক", "📝 নতুন নিবন্ধন"])
 
     with tab1:
-        s_id = st.text_input("আইডি বা গাড়ির নাম্বার দিন")
+        s_id = st.text_input("আইডি বা গাড়ির নাম্বার দিয়ে সার্চ করুন")
         if s_id:
             user = get_user_by_id(s_id)
             if user:
-                st.success(f"স্বাগতম, **{user['name'].title()}**")
+                # নিরাপত্তার জন্য নাম মাস্ক করা হয়েছে
+                st.success(f"স্বাগতম, **{mask_name(user['name'])}**")
+                
+                # QR কোড ডিসপ্লে
                 qr_img = generate_qr(user['rider_id'])
-                st.image(qr_img, caption="আপনার পার্সোনাল QR কোড", width=150)
-                st.download_button("QR ডাউনলোড করুন", qr_img, file_name=f"FuelGuard_{user['rider_id']}.png", mime="image/png")
-            else: st.warning("আইডি পাওয়া যায়নি।")
+                st.image(qr_img, caption="আপনার ইউনিক QR কোড", width=150)
+                st.download_button("QR ডাউনলোড করুন", qr_img, file_name=f"QR_{user['rider_id']}.png", mime="image/png")
+                
+                is_exempt = user.get('category') in ["Farmer", "Govt"]
+                if not is_exempt and user['last_refill']:
+                    unlock = datetime.strptime(user['last_refill'], "%Y-%m-%d %H:%M:%S") + timedelta(hours=LOCKOUT_HOURS)
+                    if datetime.now() < unlock: st.error(f"🚫 লকড! পরবর্তী রিফিল: {unlock.strftime('%b %d, %I:%M %p')}")
+                    else: st.success("✅ আপনি তেল পাওয়ার যোগ্য।")
+            else: st.warning("আইডি পাওয়া যায়নি।")
 
     with tab2:
         with st.form("reg_form"):
-            name_input = st.text_input("পুরো নাম")
+            name_input = st.text_input("পুরো নাম (এনআইডি অনুযায়ী)")
             reg_data = {"category": mode, "liters": 0, "last_refill": None}
             if mode in ["General", "Govt"]:
                 c_d, c_s, c_n = st.columns(3)
@@ -152,14 +170,14 @@ if st.session_state.app_mode in ["Farmer", "Govt", "General"]:
                     reg_data["name"] = name_input.strip().title()
                     try:
                         supabase.table("riders").insert(reg_data).execute()
-                        st.success("নিবন্ধন সফল! নিচের QR কোডটি সেভ করুন।")
+                        st.success("নিবন্ধন সফল! আপনার QR কোডটি নিচে দেওয়া হলো।")
                         qr_img = generate_qr(reg_data["rider_id"])
                         st.image(qr_img, width=200)
-                        st.download_button("QR কোড ডাউনলোড", qr_img, file_name=f"{reg_data['rider_id']}.png")
+                        st.download_button("QR কোডটি সেভ করুন", qr_img, file_name=f"FuelQR_{reg_data['rider_id']}.png")
                         st.balloons()
-                    except: st.error("এই আইডিটি ইতিমধ্যে নিবন্ধিত!")
+                    except: st.error("দুঃখিত! এই আইডিটি ইতিমধ্যে নিবন্ধিত।")
 
-# --- ৭. পাম্প অপারেটর প্যানেল (QR Scanner + Manual Entry) ---
+# --- ৭. পাম্প অপারেটর প্যানেল (Full Security) ---
 elif st.session_state.app_mode == "Pump":
     if "pump_auth" not in st.session_state: st.session_state.pump_auth = False
     if st.session_state.pump_auth and st.sidebar.button("⬅️ প্রধান পাতায় ফিরুন"):
@@ -167,24 +185,20 @@ elif st.session_state.app_mode == "Pump":
 
     if not st.session_state.pump_auth:
         st.title("🏢 পাম্প স্টেশন লগইন")
-        pin = st.text_input("সিক্রেট পিন", type="password")
+        pin = st.text_input("দৈনিক সিক্রেট পিন দিন", type="password")
         if st.button("লগইন", use_container_width=True, type="primary"):
             if pin == CURRENT_DAILY_PIN: st.session_state.pump_auth = True; st.rerun()
-            else: st.error("ভুল পিন!")
+            else: st.error("ভুল পিন! দয়া করে সঠিক পিন দিন।")
     else:
         st.title("⛽ পাম্প অপারেশন")
         
-        # QR স্ক্যানার সেকশন (ম্যানুয়াল এন্ট্রির পাশাপাশি)
+        # QR স্ক্যানার (ঐচ্ছিক এক্সপ্যান্ডার)
         with st.expander("📸 QR কোড স্ক্যান করুন", expanded=True):
-            scanned_id = qrcode_scanner(key='pump_scanner')
-            if scanned_id:
-                st.success(f"স্ক্যান সফল: {scanned_id}")
+            scanned_id = qrcode_scanner(key='pump_scanner_final')
+            if scanned_id: st.success(f"স্ক্যান সফল: {scanned_id}")
         
-        # পাম্প অপারেটর টাইপ করতে পারবেন অথবা স্ক্যান করা ভ্যালু অটোমেটিক বসে যাবে
-        p_search = st.text_input(
-            "আইডি বা গাড়ির নাম্বার দিন (ম্যানুয়াল বা স্ক্যান)", 
-            value=scanned_id if scanned_id else ""
-        )
+        # ম্যানুয়াল এন্ট্রি ও সার্চ (স্ক্যান করা আইডি অটো-ফিল হবে)
+        p_search = st.text_input("আইডি বা নাম্বার দিন (ম্যানুয়াল/স্ক্যান)", value=scanned_id if scanned_id else "")
         
         if p_search:
             user = get_user_by_id(p_search)
@@ -197,7 +211,9 @@ elif st.session_state.app_mode == "Pump":
                     eligible = datetime.now() >= unlock_time
                 else: eligible = True
 
-                st.info(f"ইউজার: **{user['name'].title()}** | ক্যাটাগরি: {user['category']}")
+                # অপারেটর পুরো নাম দেখতে পাবেন ভেরিফিকেশনের জন্য
+                st.info(f"রাইডার: **{user['name'].title()}** | ক্যাটাগরি: {user['category']}")
+                
                 if eligible:
                     st.success("✅ রিফিল অনুমোদিত")
                     with st.container(border=True):
@@ -205,7 +221,7 @@ elif st.session_state.app_mode == "Pump":
                         with c_i:
                             f_type = st.selectbox("জ্বালানি", ["Petrol", "Octane", "Diesel"])
                             liters = st.number_input("লিটার (১-১০০)", 1.0, 100.0, 5.0)
-                        with col_p: photo = st.camera_input("ছবি (ঐচ্ছিক)")
+                        with col_p: photo = st.camera_input("ছবি (প্রমাণস্বরূপ)")
                         
                         if st.button("💾 ডাটা সেভ করুন", use_container_width=True, type="primary"):
                             st.session_state.temp_refill_data = {
@@ -215,8 +231,8 @@ elif st.session_state.app_mode == "Pump":
                                 "photo": photo.getvalue() if photo else None
                             }
                             st.session_state.show_confirm_dialog = True; st.rerun()
-                else: st.error(f"🚫 লকড! তেল পাবেন: {unlock_time.strftime('%b %d, %I:%M %p')}")
-            else: st.error("আইডি পাওয়া যায়নি।")
+                else: st.error(f"🚫 লকড! রাইডার পুনরায় তেল পাবেন: {unlock_time.strftime('%b %d, %I:%M %p')}")
+            else: st.error("দুঃখিত, এই আইডির কোনো তথ্য পাওয়া যায়নি।")
 
 st.markdown("---")
-st.caption("FuelGuard Pro © 2026 | দ্রুত ও নিরাপদ জ্বালানি বন্টন ব্যবস্থাপনা")
+st.caption("FuelGuard Pro 2026 | দেশের জ্বালানি নিরাপত্তার জন্য")
