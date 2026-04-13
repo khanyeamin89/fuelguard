@@ -4,3 +4,7 @@ pandas
 qrcode
 folium
 streamlit-folium
+streamlit
+supabase
+qrcode
+streamlit-qrcode-scanner
