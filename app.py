@@ -16,8 +16,8 @@ st.set_page_config(
     page_icon="⛽",
     layout="wide",
     menu_items={
-        'Get Help': 'vpersonal1123@gmail.com',
-        'Report a bug': "vpersonal1123@gmail.com",
+        'Get Help': 'https://www.facebook.com/khanyeamin/',
+        'Report a bug': "https://www.facebook.com/khanyeamin/",
         'About': "# FuelGuard Pro\nAutomating fuel distribution with AI and QR technology for a more transparent future."
     }
 )
