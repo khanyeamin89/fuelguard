@@ -11,7 +11,40 @@ from streamlit_qrcode_scanner import qrcode_scanner
 
 # --- ১. কনফিগারেশন ও সিএসএস ---
 st.set_page_config(page_title="FuelGuard Pro", page_icon="⛽", layout="wide")
+st.title("⛽ FuelGuard Pro")
 
+# Language Selection (Optional but good for UX)
+lang = st.radio("Select Language / ভাষা নির্বাচন করুন", ["English", "বাংলা"], horizontal=True)
+
+if lang == "English":
+    st.markdown("""
+        ### **Smart Fuel Management & Automated Distribution System**
+        **FuelGuard Pro** is a cutting-edge AI solution designed to digitize and bring transparency to fuel distribution. 
+        By leveraging Artificial Intelligence (AI) and QR technology, we ensure fair usage and prevent fraud.
+        
+        **Core Features:**
+        * **AI Plate Recognition:** Instant vehicle identification via automated scanning.
+        * **Secure QR Access:** Personal QR codes for fast and secure refueling.
+        * **Smart Lockout:** Category-based refill limits to prevent fuel misuse.
+        * **Real-time Monitoring:** PIN-protected dashboard for pump operators.
+        ---
+        *Save fuel, ensure transparency. Select your category below to get started.*
+        """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+        ### **স্মার্ট ফুয়েল ম্যানেজমেন্ট এবং অটোমেটেড ডিস্ট্রিবিউশন সিস্টেম**
+        **FuelGuard Pro** বাংলাদেশে জ্বালানি বন্টন ব্যবস্থাকে ডিজিটাল এবং স্বচ্ছ করতে একটি আধুনিক AI সমাধান। 
+        কৃত্রিম বুদ্ধিমত্তা (AI) এবং QR প্রযুক্তি ব্যবহারের মাধ্যমে আমরা জ্বালানি সাশ্রয় এবং সঠিক বন্টন নিশ্চিত করি।
+        
+        **মূল সুবিধাসমূহ:**
+        * **AI Plate Recognition:** স্বয়ংক্রিয়ভাবে যানবাহনের নম্বর প্লেট শনাক্তকরণ।
+        * **Secure QR Access:** দ্রুত এবং নিরাপদ জ্বালানি সংগ্রহের জন্য ব্যক্তিগত QR কোড।
+        * **Smart Lockout:** জালিয়াতি রোধে রিফিল সময়সীমা স্বয়ংক্রিয় নিয়ন্ত্রণ।
+        * **Real-time Monitoring:** পাম্প অপারেটরদের জন্য সুরক্ষিত ট্র্যাকিং সিস্টেম।
+        ---
+        *জ্বালানি সাশ্রয় করুন, স্বচ্ছতা নিশ্চিত করুন। শুরু করতে নিচে আপনার ক্যাটাগরি বেছে নিন।*
+        """, unsafe_allow_html=True)
+    
 st.markdown("""
     <style>
     .stButton>button { width: 100%; border-radius: 8px; font-weight: bold; height: 3em; }
