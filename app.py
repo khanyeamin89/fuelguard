@@ -10,7 +10,17 @@ from PIL import Image
 from streamlit_qrcode_scanner import qrcode_scanner
 
 # --- ১. কনফিগারেশন ও সিএসএস ---
-st.set_page_config(page_title="FuelGuard Pro", page_icon="⛽", layout="wide")
+#st.set_page_config(page_title="FuelGuard Pro", page_icon="⛽", layout="wide")
+st.set_page_config(
+    page_title="FuelGuard Pro | Smart Fuel Management System",
+    page_icon="⛽",
+    layout="wide",
+    menu_items={
+        'Get Help': 'vpersonal1123@gmail.com',
+        'Report a bug': "vpersonal1123@gmail.com",
+        'About': "# FuelGuard Pro\nAutomating fuel distribution with AI and QR technology for a more transparent future."
+    }
+)
 st.title("⛽ FuelGuard Pro")
 
 # Language Selection (Optional but good for UX)
